@@ -8,11 +8,26 @@ function App() {
   const renderCard = () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
+    const cardWidth = 900;
+const cardHeight = 600;
+
+const cardX =
+  (canvas.width - cardWidth) / 2;
+
+const cardY =
+  (canvas.height - cardHeight) / 2;
 
     // 背景
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
+    ctx.fillStyle = "#ffffff";
+
+ctx.fillRect(
+  cardX,
+  cardY,
+  cardWidth,
+  cardHeight
+);
     // 上側背景
     ctx.beginPath();
     
@@ -44,7 +59,66 @@ function App() {
     // 名前
     ctx.font = "bold 96px sans-serif";
 
-    ctx.fillText(name || "名前未入力", 80, 300);
+    ctx.fillText(
+      name || "名前未入力",
+      cardX + 80,
+      cardY + 300
+    );
+    ctx.strokeStyle = "#000000";
+ctx.lineWidth = 2;
+
+const trim = 30;
+
+// 左上
+ctx.beginPath();
+ctx.moveTo(cardX - trim, cardY);
+ctx.lineTo(cardX, cardY);
+
+ctx.moveTo(cardX, cardY - trim);
+ctx.lineTo(cardX, cardY);
+ctx.stroke();
+
+// 右上
+ctx.beginPath();
+ctx.moveTo(cardX + cardWidth + trim, cardY);
+ctx.lineTo(cardX + cardWidth, cardY);
+
+ctx.moveTo(cardX + cardWidth, cardY - trim);
+ctx.lineTo(cardX + cardWidth, cardY);
+ctx.stroke();
+
+// 左下
+ctx.beginPath();
+ctx.moveTo(cardX - trim, cardY + cardHeight);
+ctx.lineTo(cardX, cardY + cardHeight);
+
+ctx.moveTo(cardX, cardY + cardHeight + trim);
+ctx.lineTo(cardX, cardY + cardHeight);
+ctx.stroke();
+
+// 右下
+ctx.beginPath();
+ctx.moveTo(
+  cardX + cardWidth + trim,
+  cardY + cardHeight
+);
+
+ctx.lineTo(
+  cardX + cardWidth,
+  cardY + cardHeight
+);
+
+ctx.moveTo(
+  cardX + cardWidth,
+  cardY + cardHeight + trim
+);
+
+ctx.lineTo(
+  cardX + cardWidth,
+  cardY + cardHeight
+);
+
+ctx.stroke();
   };
 
   const saveCard = () => {
@@ -103,17 +177,13 @@ function App() {
         PNG保存
       </button>
 
-      <div style={{ marginTop: "20px" }}>
-        <canvas
-          ref={canvasRef}
-          width="1051"
-          height="1500"
-          style={{
-            width: "350px",
-            background: "white",
-            border: "1px solid #ccc",
-          }}
-        />
+      <div
+  style={{
+    marginTop: "20px",
+    display: "flex",
+    justifyContent: "center",
+  }}
+> 
       </div>
     </div>
   );
