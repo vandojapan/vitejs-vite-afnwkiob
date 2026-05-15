@@ -4,7 +4,7 @@ import { TwitterPicker }
 
 function App() {
   const canvasRef = useRef(null);
-
+  const [iconImage, setIconImage] = useState(null);
   const [name, setName] = useState("");
   const [bgColor, setBgColor] = useState("#333333");
 
@@ -64,7 +64,35 @@ function App() {
 
     ctx.fillStyle = bgColor;
     ctx.fill();
+if (iconImage) {
+  const imageSize = 300;
 
+  ctx.save();
+
+  ctx.beginPath();
+
+  ctx.arc(
+    cardX + cardWidth / 2,
+    cardY + 220,
+    imageSize / 2,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.closePath();
+
+  ctx.clip();
+
+  ctx.drawImage(
+    iconImage,
+    cardX + cardWidth / 2 - imageSize / 2,
+    cardY + 220 - imageSize / 2,
+    imageSize,
+    imageSize
+  );
+
+  ctx.restore();
+}
     // 名前（中央寄せ）
     ctx.fillStyle = "#000000";
 
@@ -76,7 +104,9 @@ function App() {
     ctx.fillText(
       name || "名無し",
       cardX + cardWidth / 2,
-      cardY + cardHeight - 120
+     iconImage
+  ? cardY + cardHeight - 80
+  : cardY + cardHeight / 2
     );
 
     // QRや画像などはここに後で描画（後ほど追加）
@@ -204,7 +234,6 @@ function App() {
         }}
       >
         生成
-      </button>
 
       <button
         onClick={saveCard}
@@ -216,7 +245,33 @@ function App() {
       >
         PNG保存
       </button>
+<input
+  type="file"
+  accept="image/*"
+  onChange={(e) => {
+    const file = e.target.files[0];
 
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const img = new Image();
+
+      img.onload = () => {
+        setIconImage(img);
+      };
+
+      img.src = reader.result;
+    };
+
+    reader.readAsDataURL(file);
+  }}
+  style={{
+    display: "block",
+    marginTop: "20px",
+  }}
+/>
       <div
         style={{
           marginTop: "20px",
