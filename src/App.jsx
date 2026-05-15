@@ -163,7 +163,7 @@ const imgRef = useRef(null);
         "bold 72px sans-serif";
 
       ctx.fillText(
-        name || "名前未入力",
+        name || "名無し",
 
         cardX + cardWidth / 2,
 
