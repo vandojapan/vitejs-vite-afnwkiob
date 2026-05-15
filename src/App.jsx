@@ -1,4 +1,6 @@
 import { useRef, useState } from "react";
+import { HexColorPicker }
+  from "react-colorful";
 
 function App() {
   const canvasRef = useRef(null);
@@ -175,19 +177,21 @@ function App() {
         }}
       />
 
-      <input
-        type="color"
-        value={bgColor}
-        onChange={(e) =>
-          setBgColor(e.target.value)
-        }
-        style={{
-          marginLeft: "10px",
-          width: "50px",
-          height: "40px",
-          verticalAlign: "middle",
-        }}
-      />
+<div
+  style={{
+    marginTop: "20px",
+    marginBottom: "20px",
+  }}
+>
+  <HexColorPicker
+    color={bgColor}
+    onChange={setBgColor}
+  />
+
+  <p>
+    背景色: {bgColor}
+  </p>
+</div>
 
       <button
         onClick={renderCard}
