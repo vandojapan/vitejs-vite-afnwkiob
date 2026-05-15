@@ -39,7 +39,18 @@ function App() {
       width: 80,
       aspect: 1,
     });
-const imgRef = useRef(null);
+
+  const getContrastTextColor = (hex) => {
+    const normalized = hex.replace("#", "");
+    const bigint = parseInt(normalized, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness > 186 ? "#000000" : "#ffffff";
+  };
+
+
   // ===== 名札生成 =====
 
   const renderCard = () => {
@@ -154,6 +165,9 @@ const imgRef = useRef(null);
 
     ctx.textBaseline = "middle";
 
+    const contrastTextColor =
+      getContrastTextColor(bgColor);
+
     if (iconImage) {
       // アイコンあり版
 
@@ -163,7 +177,7 @@ const imgRef = useRef(null);
         "bold 72px sans-serif";
 
       ctx.fillText(
-        name || "名無し",
+        name || "名前未入力",
 
         cardX + cardWidth / 2,
 
@@ -172,13 +186,13 @@ const imgRef = useRef(null);
     } else {
       // テキスト版
 
-      ctx.fillStyle = "#000000";
+      ctx.fillStyle = contrastTextColor;
 
       ctx.font =
         "bold 96px sans-serif";
 
       ctx.fillText(
-        name || "名無し",
+        name || "名前未入力",
 
         cardX + cardWidth / 2,
 
@@ -188,7 +202,7 @@ const imgRef = useRef(null);
       ctx.font =
         "48px sans-serif";
 
-      ctx.fillStyle = "#666666";
+      ctx.fillStyle = contrastTextColor;
 
       ctx.fillText(
         subText || "",
@@ -293,78 +307,7 @@ const imgRef = useRef(null);
 
     ctx.stroke();
   }
-const applyCrop = () => {
-  if (
-    !imgRef.current ||
-    !crop.width ||
-    !crop.height
-  ) {
-    return;
-  }
 
-  const image = imgRef.current;
-
-  const canvas =
-    document.createElement("canvas");
-
-  const ctx =
-    canvas.getContext("2d");
-
-  const scaleX =
-    image.naturalWidth / image.width;
-
-  const scaleY =
-    image.naturalHeight / image.height;
-
-  const pixelRatio =
-    window.devicePixelRatio;
-
-  canvas.width =
-    crop.width * scaleX * pixelRatio;
-
-  canvas.height =
-    crop.height * scaleY * pixelRatio;
-
-  ctx.setTransform(
-    pixelRatio,
-    0,
-    0,
-    pixelRatio,
-    0,
-    0
-  );
-
-  ctx.imageSmoothingQuality =
-    "high";
-
-  ctx.drawImage(
-    image,
-
-    crop.x * scaleX,
-    crop.y * scaleY,
-
-    crop.width * scaleX,
-    crop.height * scaleY,
-
-    0,
-    0,
-
-    crop.width * scaleX,
-    crop.height * scaleY
-  );
-
-  const croppedImage =
-    new Image();
-
-  croppedImage.onload = () => {
-    setIconImage(croppedImage);
-
-    setShowCropModal(false);
-  };
-
-  croppedImage.src =
-    canvas.toDataURL("image/png");
-};
   // ===== PNG保存 =====
 
   const saveCard = () => {
@@ -449,45 +392,26 @@ const applyCrop = () => {
         }}
       >
         <button
+          className="app-button"
           onClick={renderCard}
-          style={{
-            padding:
-              "10px 20px",
-
-            fontSize: "16px",
-          }}
         >
           生成
         </button>
 
         <button
+          className="app-button"
           onClick={saveCard}
-          style={{
-            marginLeft: "10px",
-
-            padding:
-              "10px 20px",
-
-            fontSize: "16px",
-          }}
         >
           PNG保存
         </button>
 
         <button
+          className="app-button"
           onClick={() =>
             setShowColorPicker(
               !showColorPicker
             )
           }
-          style={{
-            marginLeft: "10px",
-
-            padding:
-              "10px 20px",
-
-            fontSize: "16px",
-          }}
         >
           色設定
         </button>
@@ -528,23 +452,10 @@ const applyCrop = () => {
         accept="image/*"
 
         onChange={(e) => {
-        const file = e.target.files[0];
+          const file =
+            e.target.files[0];
 
-				if (!file) return;
-
-				// ===== MIMEチェック =====
-				const allowedTypes = [
-		  		"image/png",
-  				"image/jpeg",
-  				"image/jpg",
-  				"image/heif",
-  				"image/gif",
-];
-
-if (!allowedTypes.includes(file.type)) {
-  alert("対応していない画像形式です");
-  return;
-}
+          if (!file) return;
 
           const reader =
             new FileReader();
@@ -601,11 +512,8 @@ if (!allowedTypes.includes(file.type)) {
               justifyContent:
                 "center",
 
-              alignItems: "flex-start",
-							overflowY: "auto",
-							padding: "20px",
-              marginTop: "40px",
-							marginBottom: "40px",
+              alignItems:
+                "center",
 
               zIndex: 9999,
             }}
@@ -641,8 +549,7 @@ if (!allowedTypes.includes(file.type)) {
                 aspect={1}
               >
                 <img
-  									ref={imgRef}
-  									src={imageSrc}
+                  src={imageSrc}
 
                   alt="Crop"
 
@@ -654,17 +561,15 @@ if (!allowedTypes.includes(file.type)) {
               </ReactCrop>
 
               <button
-                onClick={applyCrop}
-
+                className="app-button"
+                onClick={() =>
+                  setShowCropModal(
+                    false
+                  )
+                }
                 style={{
                   marginTop:
                     "20px",
-
-                  padding:
-                    "10px 20px",
-
-                  fontSize:
-                    "16px",
                 }}
               >
                 OK
