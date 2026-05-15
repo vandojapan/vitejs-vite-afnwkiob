@@ -10,8 +10,30 @@ function App() {
     const ctx = canvas.getContext("2d");
 
     // 背景
-    ctx.fillStyle = "white";
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 上側背景
+    ctx.beginPath();
+    
+    ctx.moveTo(0, 0);
+    
+    ctx.lineTo(0, 900);
+    
+    // 曲線
+    ctx.quadraticCurveTo(
+      canvas.width / 2,
+      1200,
+      canvas.width,
+      950
+    );
+    
+    ctx.lineTo(canvas.width, 0);
+    
+    ctx.closePath();
+    
+    ctx.fillStyle = "#333333";
+    ctx.fill();
 
     // タイトル
     ctx.fillStyle = "black";
