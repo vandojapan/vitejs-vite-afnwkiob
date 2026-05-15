@@ -60,7 +60,7 @@ function App() {
 
     ctx.closePath();
 
-    ctx.fillStyle = "#333333";
+    ctx.fillStyle = bgColor;
     ctx.fill();
 
     // 名前（中央寄せ）
