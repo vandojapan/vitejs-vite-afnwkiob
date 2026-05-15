@@ -4,7 +4,7 @@ function App() {
   const canvasRef = useRef(null);
 
   const [name, setName] = useState("");
-  const [bgColor, setBgColor] = useState("#ffffff");
+  const [bgColor, setBgColor] = useState("#333333");
 
   const renderCard = () => {
     const canvas = canvasRef.current;
