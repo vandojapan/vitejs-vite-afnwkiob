@@ -1,22 +1,40 @@
 import { useRef, useState } from "react";
-import { TwitterPicker }
-  from "react-color";
+import { TwitterPicker } from "react-color";
 
 function App() {
   const canvasRef = useRef(null);
-  const [iconImage, setIconImage] = useState(null);
+
   const [name, setName] = useState("");
-  const [bgColor, setBgColor] = useState("#333333");
+  const [subText, setSubText] = useState("");
+
+  const [bgColor, setBgColor]
+    = useState("#333333");
+
+  const [iconImage, setIconImage]
+    = useState(null);
+
+  const [
+    showColorPicker,
+    setShowColorPicker,
+  ] = useState(false);
 
   const renderCard = () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 
-    // 背景を白で塗りつぶす（L判全体）
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // ===== L判背景 =====
 
-    // ===== セクションA: カード領域の定義 =====
+    ctx.fillStyle = "#ffffff";
+
+    ctx.fillRect(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    // ===== カードサイズ =====
+
     const cardWidth = 900;
     const cardHeight = 600;
 
@@ -26,7 +44,8 @@ function App() {
     const cardY =
       (canvas.height - cardHeight) / 2;
 
-    // ===== セクションB: 名札カードの背景（白いカード） =====
+    // ===== カード背景 =====
+
     ctx.fillStyle = "#ffffff";
 
     ctx.fillRect(
@@ -36,9 +55,8 @@ function App() {
       cardHeight
     );
 
-    // ===== セクションC: デザイン描画（曲線背景＋文字など） =====
+    // ===== 上側背景 =====
 
-    // 例: 上半分を暗い色で曲線に（カード内の座標系で描画）
     ctx.beginPath();
 
     ctx.moveTo(cardX, cardY);
@@ -63,55 +81,88 @@ function App() {
     ctx.closePath();
 
     ctx.fillStyle = bgColor;
+
     ctx.fill();
-if (iconImage) {
-  const imageSize = 300;
 
-  ctx.save();
+    // ===== アイコン描画 =====
 
-  ctx.beginPath();
+    if (iconImage) {
+      const imageSize = 300;
 
-  ctx.arc(
-    cardX + cardWidth / 2,
-    cardY + 220,
-    imageSize / 2,
-    0,
-    Math.PI * 2
-  );
+      ctx.save();
 
-  ctx.closePath();
+      ctx.beginPath();
 
-  ctx.clip();
+      ctx.arc(
+        cardX + cardWidth / 2,
+        cardY + 220,
+        imageSize / 2,
+        0,
+        Math.PI * 2
+      );
 
-  ctx.drawImage(
-    iconImage,
-    cardX + cardWidth / 2 - imageSize / 2,
-    cardY + 220 - imageSize / 2,
-    imageSize,
-    imageSize
-  );
+      ctx.closePath();
 
-  ctx.restore();
-}
-    // 名前（中央寄せ）
-    ctx.fillStyle = "#000000";
+      ctx.clip();
 
-    ctx.font = "bold 72px sans-serif";
+      ctx.drawImage(
+        iconImage,
+        cardX + cardWidth / 2
+          - imageSize / 2,
+        cardY + 220
+          - imageSize / 2,
+        imageSize,
+        imageSize
+      );
+
+      ctx.restore();
+    }
+
+    // ===== テキスト描画 =====
 
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    ctx.fillText(
-      name || "名無し",
-      cardX + cardWidth / 2,
-     iconImage
-  ? cardY + cardHeight - 80
-  : cardY + cardHeight / 2
-    );
+    if (iconImage) {
+      // アイコンあり版
 
-    // QRや画像などはここに後で描画（後ほど追加）
+      ctx.fillStyle = "#000000";
 
-    // ===== セクションD: トリムマーク（トンボ）を描画 =====
+      ctx.font =
+        "bold 72px sans-serif";
+
+      ctx.fillText(
+        name || "名前未入力",
+        cardX + cardWidth / 2,
+        cardY + cardHeight - 80
+      );
+    } else {
+      // テキストのみ版
+
+      ctx.fillStyle = "#000000";
+
+      ctx.font =
+        "bold 96px sans-serif";
+
+      ctx.fillText(
+        name || "名前未入力",
+        cardX + cardWidth / 2,
+        cardY + cardHeight / 2 - 40
+      );
+
+      ctx.font = "48px sans-serif";
+
+      ctx.fillStyle = "#666666";
+
+      ctx.fillText(
+        subText || "",
+        cardX + cardWidth / 2,
+        cardY + cardHeight / 2 + 80
+      );
+    }
+
+    // ===== トリムマーク =====
+
     drawTrimMarks(
       ctx,
       cardX,
@@ -121,9 +172,16 @@ if (iconImage) {
     );
   };
 
-  // トリムマーク描画用関数（renderCardの外に配置）
-  function drawTrimMarks(ctx, x, y, w, h) {
-    const trim = 30; // トリム線の長さ
+  // ===== トリムマーク関数 =====
+
+  function drawTrimMarks(
+    ctx,
+    x,
+    y,
+    w,
+    h
+  ) {
+    const trim = 30;
 
     ctx.strokeStyle = "#000000";
     ctx.lineWidth = 2;
@@ -164,23 +222,42 @@ if (iconImage) {
     // 右下
     ctx.beginPath();
 
-    ctx.moveTo(x + w + trim, y + h);
-    ctx.lineTo(x + w, y + h);
+    ctx.moveTo(
+      x + w + trim,
+      y + h
+    );
 
-    ctx.moveTo(x + w, y + h + trim);
-    ctx.lineTo(x + w, y + h);
+    ctx.lineTo(
+      x + w,
+      y + h
+    );
+
+    ctx.moveTo(
+      x + w,
+      y + h + trim
+    );
+
+    ctx.lineTo(
+      x + w,
+      y + h
+    );
 
     ctx.stroke();
   }
 
+  // ===== PNG保存 =====
+
   const saveCard = () => {
     const canvas = canvasRef.current;
 
-    const link = document.createElement("a");
+    const link =
+      document.createElement("a");
 
-    link.download = "event-namecard.png";
+    link.download =
+      "event-namecard.png";
 
-    link.href = canvas.toDataURL("image/png");
+    link.href =
+      canvas.toDataURL("image/png");
 
     link.click();
   };
@@ -193,13 +270,19 @@ if (iconImage) {
         minHeight: "100vh",
       }}
     >
-      <h1>イベント名札ジェネレーター</h1>
+      <h1>
+        イベント名札ジェネレーター
+      </h1>
+
+      {/* 名前入力 */}
 
       <input
         type="text"
         placeholder="名前を入力"
         value={name}
-        onChange={(e) => setName(e.target.value)}
+        onChange={(e) =>
+          setName(e.target.value)
+        }
         style={{
           padding: "10px",
           fontSize: "16px",
@@ -207,76 +290,143 @@ if (iconImage) {
         }}
       />
 
- <div
-  style={{
-    marginTop: "20px",
-    marginBottom: "20px",
-  }}
->
-  <TwitterPicker
-    color={bgColor}
-    onChange={(color) =>
-      setBgColor(color.hex)
-    }
-  />
+      {/* サブテキスト */}
 
-  <p>
-    背景色: {bgColor}
-  </p>
-</div>
+      {
+        !iconImage && (
+          <input
+            type="text"
+            placeholder="サブテキスト"
+            value={subText}
+            onChange={(e) =>
+              setSubText(
+                e.target.value
+              )
+            }
+            style={{
+              display: "block",
+              marginTop: "10px",
+              padding: "10px",
+              fontSize: "16px",
+              width: "300px",
+            }}
+          />
+        )
+      }
 
-      <button
-        onClick={renderCard}
+      {/* ボタン群 */}
+
+      <div
         style={{
-          marginLeft: "10px",
-          padding: "10px 20px",
-          fontSize: "16px",
+          marginTop: "20px",
         }}
       >
-        生成
+        <button
+          onClick={renderCard}
+          style={{
+            padding: "10px 20px",
+            fontSize: "16px",
+          }}
+        >
+          生成
+        </button>
 
-      <button
-        onClick={saveCard}
-        style={{
-          marginLeft: "10px",
-          padding: "10px 20px",
-          fontSize: "16px",
+        <button
+          onClick={saveCard}
+          style={{
+            marginLeft: "10px",
+            padding: "10px 20px",
+            fontSize: "16px",
+          }}
+        >
+          PNG保存
+        </button>
+
+        <button
+          onClick={() =>
+            setShowColorPicker(
+              !showColorPicker
+            )
+          }
+          style={{
+            marginLeft: "10px",
+            padding: "10px 20px",
+            fontSize: "16px",
+          }}
+        >
+          色設定
+        </button>
+      </div>
+
+      {/* カラーピッカー */}
+
+      {
+        showColorPicker && (
+          <div
+            style={{
+              marginTop: "20px",
+            }}
+          >
+            <TwitterPicker
+              color={bgColor}
+              onChange={(color) =>
+                setBgColor(
+                  color.hex
+                )
+              }
+            />
+
+            <p>
+              背景色: {bgColor}
+            </p>
+          </div>
+        )
+      }
+
+      {/* 画像アップロード */}
+
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => {
+          const file =
+            e.target.files[0];
+
+          if (!file) return;
+
+          const reader =
+            new FileReader();
+
+          reader.onload = () => {
+            const img =
+              new Image();
+
+            img.onload = () => {
+              setIconImage(img);
+            };
+
+            img.src =
+              reader.result;
+          };
+
+          reader.readAsDataURL(
+            file
+          );
         }}
-      >
-        PNG保存
-      </button>
-<input
-  type="file"
-  accept="image/*"
-  onChange={(e) => {
-    const file = e.target.files[0];
+        style={{
+          display: "block",
+          marginTop: "20px",
+        }}
+      />
 
-    if (!file) return;
+      {/* Canvas */}
 
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      const img = new Image();
-
-      img.onload = () => {
-        setIconImage(img);
-      };
-
-      img.src = reader.result;
-    };
-
-    reader.readAsDataURL(file);
-  }}
-  style={{
-    display: "block",
-    marginTop: "20px",
-  }}
-/>
       <div
         style={{
           marginTop: "20px",
           display: "flex",
-          justifyContent: "center",
+          justifyContent:
+            "center",
         }}
       >
         <canvas
@@ -286,7 +436,8 @@ if (iconImage) {
           style={{
             width: "350px",
             background: "white",
-            border: "1px solid #ccc",
+            border:
+              "1px solid #ccc",
           }}
         />
       </div>
