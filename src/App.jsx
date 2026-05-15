@@ -85,3 +85,16 @@ function App() {
         <canvas
           ref={canvasRef}
           width="1051"
+          height="1500"
+          style={{
+            width: "350px",
+            background: "white",
+            border: "1px solid #ccc",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+export default App;
