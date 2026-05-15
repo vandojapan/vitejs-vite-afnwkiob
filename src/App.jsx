@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { SketchPicker }
+import { TwitterPicker }
   from "react-color";
 
 function App() {
