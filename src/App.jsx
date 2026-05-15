@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
 import { TwitterPicker } from "react-color";
+import ReactCrop from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 
 function App() {
   const canvasRef = useRef(null);
@@ -17,6 +19,16 @@ function App() {
     showColorPicker,
     setShowColorPicker,
   ] = useState(false);
+
+  const [imageSrc, setImageSrc]
+  = useState(null);
+
+const [crop, setCrop]
+  = useState({
+    unit: "%",
+    width: 80,
+    aspect: 1,
+  });
 
   const renderCard = () => {
     const canvas = canvasRef.current;
@@ -402,7 +414,7 @@ function App() {
               new Image();
 
             img.onload = () => {
-              setIconImage(img);
+              setImageSrc(reader.result);;
             };
 
             img.src =
@@ -418,7 +430,30 @@ function App() {
           marginTop: "20px",
         }}
       />
-
+{
+  imageSrc && (
+    <div
+      style={{
+        marginTop: "20px",
+        maxWidth: "400px",
+      }}
+    >
+      <ReactCrop
+        crop={crop}
+        onChange={(c) => setCrop(c)}
+        aspect={1}
+      >
+        <img
+          src={imageSrc}
+          alt="Crop"
+          style={{
+            maxWidth: "100%",
+          }}
+        />
+      </ReactCrop>
+    </div>
+  )
+}
       {/* Canvas */}
 
       <div
