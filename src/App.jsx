@@ -183,7 +183,7 @@ function App() {
     marginBottom: "20px",
   }}
 >
-  <SketchPicker
+  <TwitterPicker
     color={bgColor}
     onChange={(color) =>
       setBgColor(color.hex)
