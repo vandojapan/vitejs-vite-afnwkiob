@@ -4,6 +4,8 @@ import QRCode from "qrcode";
 import { TwitterPicker } from "react-color";
 import ReactCrop from "react-image-crop";
 
+const WORKER_BASE = import.meta.env.VITE_WORKER_BASE || "";
+
 import "react-image-crop/dist/ReactCrop.css";
 
 function App() {
@@ -19,9 +21,11 @@ function App() {
   const [showCropModal, setShowCropModal] = useState(false);
   const [crop, setCrop] = useState({ unit: "%", width: 80, aspect: 1 });
   const [url, setUrl] = useState("");
+  const [pageUrl, setPageUrl] = useState("");
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState(null);
   const [avatarError, setAvatarError] = useState("");
   const [simpleLoading, setSimpleLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const getContrastTextColor = (hex) => {
     const normalized = hex.replace("#", "");
@@ -43,6 +47,19 @@ function App() {
     });
   };
 
+  const buildWorkerEndpoint = (path, params) => {
+    const base = WORKER_BASE ? WORKER_BASE.replace(/\/$/, "") : "";
+    const query = new URLSearchParams(params).toString();
+    return base ? `${base}${path}?${query}` : "";
+  };
+
+  const getAvatarEndpoint = (identifier) => {
+    if (WORKER_BASE) {
+      return buildWorkerEndpoint("/api/avatar", { target: identifier });
+    }
+    return `https://unavatar.io/${encodeURIComponent(identifier)}?fallback=identicon`;
+  };
+
   const loadUnavatar = async (identifier) => {
     if (!identifier.trim()) {
       setAvatarError("名前を入力してから実行してください。");
@@ -52,14 +69,47 @@ function App() {
     setAvatarError("");
     setSimpleLoading(true);
 
-    const avatarUrl = `https://unavatar.io/${encodeURIComponent(identifier)}?fallback=identicon`;
+    const avatarUrl = getAvatarEndpoint(identifier);
     try {
       const img = await loadRemoteImage(avatarUrl);
       setIconImage(img);
     } catch (error) {
-      setAvatarError("unavatar.io からアイコンを取得できませんでした。");
+      setAvatarError("アイコンの取得に失敗しました。Worker URL を設定するか、識別子を確認してください。");
     } finally {
       setSimpleLoading(false);
+    }
+  };
+
+  const loadProfileFromPage = async () => {
+    if (!pageUrl.trim()) {
+      setAvatarError("ページ URL を入力してください。");
+      return;
+    }
+
+    if (!WORKER_BASE) {
+      setAvatarError("Cloudflare Worker の URL を VITE_WORKER_BASE に設定してください。");
+      return;
+    }
+
+    setAvatarError("");
+    setProfileLoading(true);
+
+    try {
+      const profileUrl = buildWorkerEndpoint("/api/profile", { url: pageUrl.trim() });
+      const response = await fetch(profileUrl);
+      if (!response.ok) {
+        throw new Error(`取得に失敗しました (${response.status})`);
+      }
+      const data = await response.json();
+      setName(data.name || data.displayName || name);
+      if (data.avatar) {
+        const img = await loadRemoteImage(data.avatar);
+        setIconImage(img);
+      }
+    } catch (error) {
+      setAvatarError("OGP 解析またはアイコン取得に失敗しました。URL を確認してください。");
+    } finally {
+      setProfileLoading(false);
     }
   };
 
@@ -256,7 +306,30 @@ function App() {
                 {simpleLoading ? "取得中…" : "unavatar でアイコン取得"}
               </button>
             </div>
-            <p className="help-text">名前を元に unavatar.io からアイコンを取得します。</p>
+            <div className="field-group">
+              <label>
+                プロフィール URL
+                <input
+                  type="text"
+                  placeholder="ユーザーページの URL を入力"
+                  value={pageUrl}
+                  onChange={(e) => setPageUrl(e.target.value)}
+                />
+              </label>
+            </div>
+            <div className="field-group">
+              <button
+                className="app-button"
+                type="button"
+                onClick={loadProfileFromPage}
+                disabled={profileLoading || !pageUrl.trim()}
+              >
+                {profileLoading ? "OGP 取得中…" : "OGP から取得"}
+              </button>
+            </div>
+            <p className="help-text">
+              Cloudflare Worker で OGP スクレイピングし、ニコニコユーザーページにも対応します。
+            </p>
             {avatarError && <p className="error-text">{avatarError}</p>}
             {iconImage && (
               <div className="preview-block">
