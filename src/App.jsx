@@ -40,6 +40,16 @@ function App() {
       aspect: 1,
     });
 
+  const getContrastTextColor = (hex) => {
+    const normalized = hex.replace("#", "");
+    const bigint = parseInt(normalized, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness > 186 ? "#000000" : "#ffffff";
+  };
+
   // ===== 名札生成 =====
 
   const renderCard = () => {
@@ -154,6 +164,9 @@ function App() {
 
     ctx.textBaseline = "middle";
 
+    const contrastTextColor =
+      getContrastTextColor(bgColor);
+
     if (iconImage) {
       // アイコンあり版
 
@@ -172,7 +185,7 @@ function App() {
     } else {
       // テキスト版
 
-      ctx.fillStyle = "#000000";
+      ctx.fillStyle = contrastTextColor;
 
       ctx.font =
         "bold 96px sans-serif";
@@ -188,7 +201,7 @@ function App() {
       ctx.font =
         "48px sans-serif";
 
-      ctx.fillStyle = "#666666";
+      ctx.fillStyle = contrastTextColor;
 
       ctx.fillText(
         subText || "",
