@@ -1,38 +1,52 @@
 import { useRef, useState } from "react";
+
 import { TwitterPicker } from "react-color";
+
 import ReactCrop from "react-image-crop";
+
 import "react-image-crop/dist/ReactCrop.css";
 
 function App() {
   const canvasRef = useRef(null);
 
+  // ===== state =====
+
   const [name, setName] = useState("");
-  const [subText, setSubText] = useState("");
+
+  const [subText, setSubText]
+    = useState("");
 
   const [bgColor, setBgColor]
     = useState("#333333");
 
+  const [showColorPicker,
+    setShowColorPicker]
+    = useState(false);
+
   const [iconImage, setIconImage]
     = useState(null);
 
-  const [
-    showColorPicker,
-    setShowColorPicker,
-  ] = useState(false);
-
   const [imageSrc, setImageSrc]
-  = useState(null);
+    = useState(null);
 
-const [crop, setCrop]
-  = useState({
-    unit: "%",
-    width: 80,
-    aspect: 1,
-  });
+  const [showCropModal,
+    setShowCropModal]
+    = useState(false);
+
+  const [crop, setCrop]
+    = useState({
+      unit: "%",
+      width: 80,
+      aspect: 1,
+    });
+
+  // ===== 名札生成 =====
 
   const renderCard = () => {
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
+
+    const ctx =
+      canvas.getContext("2d");
 
     // ===== L判背景 =====
 
@@ -48,6 +62,7 @@ const [crop, setCrop]
     // ===== カードサイズ =====
 
     const cardWidth = 900;
+
     const cardHeight = 600;
 
     const cardX =
@@ -67,7 +82,7 @@ const [crop, setCrop]
       cardHeight
     );
 
-    // ===== 上側背景 =====
+    // ===== 曲線背景 =====
 
     ctx.beginPath();
 
@@ -101,38 +116,42 @@ const [crop, setCrop]
     if (iconImage) {
       const imageSize = 300;
 
-      ctx.save();
-
-      ctx.beginPath();
-
-      ctx.arc(
-        cardX + cardWidth / 2,
-        cardY + 220,
-        imageSize / 2,
-        0,
-        Math.PI * 2
+      const size = Math.min(
+        iconImage.width,
+        iconImage.height
       );
 
-      ctx.closePath();
+      const sx =
+        (iconImage.width - size) / 2;
 
-      ctx.clip();
+      const sy =
+        (iconImage.height - size) / 2;
 
       ctx.drawImage(
         iconImage,
-        cardX + cardWidth / 2
+
+        sx,
+        sy,
+        size,
+        size,
+
+        cardX
+          + cardWidth / 2
           - imageSize / 2,
-        cardY + 220
+
+        cardY
+          + 220
           - imageSize / 2,
+
         imageSize,
         imageSize
       );
-
-      ctx.restore();
     }
 
     // ===== テキスト描画 =====
 
     ctx.textAlign = "center";
+
     ctx.textBaseline = "middle";
 
     if (iconImage) {
@@ -145,11 +164,13 @@ const [crop, setCrop]
 
       ctx.fillText(
         name || "名前未入力",
+
         cardX + cardWidth / 2,
+
         cardY + cardHeight - 80
       );
     } else {
-      // テキストのみ版
+      // テキスト版
 
       ctx.fillStyle = "#000000";
 
@@ -158,17 +179,22 @@ const [crop, setCrop]
 
       ctx.fillText(
         name || "名前未入力",
+
         cardX + cardWidth / 2,
+
         cardY + cardHeight / 2 - 40
       );
 
-      ctx.font = "48px sans-serif";
+      ctx.font =
+        "48px sans-serif";
 
       ctx.fillStyle = "#666666";
 
       ctx.fillText(
         subText || "",
+
         cardX + cardWidth / 2,
+
         cardY + cardHeight / 2 + 80
       );
     }
@@ -184,7 +210,7 @@ const [crop, setCrop]
     );
   };
 
-  // ===== トリムマーク関数 =====
+  // ===== トリムマーク =====
 
   function drawTrimMarks(
     ctx,
@@ -196,42 +222,53 @@ const [crop, setCrop]
     const trim = 30;
 
     ctx.strokeStyle = "#000000";
+
     ctx.lineWidth = 2;
 
     // 左上
+
     ctx.beginPath();
 
     ctx.moveTo(x - trim, y);
+
     ctx.lineTo(x, y);
 
     ctx.moveTo(x, y - trim);
+
     ctx.lineTo(x, y);
 
     ctx.stroke();
 
     // 右上
+
     ctx.beginPath();
 
     ctx.moveTo(x + w + trim, y);
+
     ctx.lineTo(x + w, y);
 
     ctx.moveTo(x + w, y - trim);
+
     ctx.lineTo(x + w, y);
 
     ctx.stroke();
 
     // 左下
+
     ctx.beginPath();
 
     ctx.moveTo(x - trim, y + h);
+
     ctx.lineTo(x, y + h);
 
     ctx.moveTo(x, y + h + trim);
+
     ctx.lineTo(x, y + h);
 
     ctx.stroke();
 
     // 右下
+
     ctx.beginPath();
 
     ctx.moveTo(
@@ -260,7 +297,8 @@ const [crop, setCrop]
   // ===== PNG保存 =====
 
   const saveCard = () => {
-    const canvas = canvasRef.current;
+    const canvas =
+      canvasRef.current;
 
     const link =
       document.createElement("a");
@@ -269,10 +307,14 @@ const [crop, setCrop]
       "event-namecard.png";
 
     link.href =
-      canvas.toDataURL("image/png");
+      canvas.toDataURL(
+        "image/png"
+      );
 
     link.click();
   };
+
+  // ===== JSX =====
 
   return (
     <div
@@ -293,7 +335,9 @@ const [crop, setCrop]
         placeholder="名前を入力"
         value={name}
         onChange={(e) =>
-          setName(e.target.value)
+          setName(
+            e.target.value
+          )
         }
         style={{
           padding: "10px",
@@ -336,7 +380,9 @@ const [crop, setCrop]
         <button
           onClick={renderCard}
           style={{
-            padding: "10px 20px",
+            padding:
+              "10px 20px",
+
             fontSize: "16px",
           }}
         >
@@ -347,7 +393,10 @@ const [crop, setCrop]
           onClick={saveCard}
           style={{
             marginLeft: "10px",
-            padding: "10px 20px",
+
+            padding:
+              "10px 20px",
+
             fontSize: "16px",
           }}
         >
@@ -362,7 +411,10 @@ const [crop, setCrop]
           }
           style={{
             marginLeft: "10px",
-            padding: "10px 20px",
+
+            padding:
+              "10px 20px",
+
             fontSize: "16px",
           }}
         >
@@ -381,6 +433,7 @@ const [crop, setCrop]
           >
             <TwitterPicker
               color={bgColor}
+
               onChange={(color) =>
                 setBgColor(
                   color.hex
@@ -389,7 +442,9 @@ const [crop, setCrop]
             />
 
             <p>
-              背景色: {bgColor}
+              背景色:
+              {" "}
+              {bgColor}
             </p>
           </div>
         )
@@ -400,6 +455,7 @@ const [crop, setCrop]
       <input
         type="file"
         accept="image/*"
+
         onChange={(e) => {
           const file =
             e.target.files[0];
@@ -410,11 +466,21 @@ const [crop, setCrop]
             new FileReader();
 
           reader.onload = () => {
+            setImageSrc(
+              reader.result
+            );
+
+            setShowCropModal(
+              true
+            );
+
             const img =
               new Image();
 
             img.onload = () => {
-              setImageSrc(reader.result);;
+              setIconImage(
+                img
+              );
             };
 
             img.src =
@@ -425,52 +491,130 @@ const [crop, setCrop]
             file
           );
         }}
+
         style={{
           display: "block",
           marginTop: "20px",
         }}
       />
-{
-  imageSrc && (
-    <div
-      style={{
-        marginTop: "20px",
-        maxWidth: "400px",
-      }}
-    >
-      <ReactCrop
-        crop={crop}
-        onChange={(c) => setCrop(c)}
-        aspect={1}
-      >
-        <img
-          src={imageSrc}
-          alt="Crop"
-          style={{
-            maxWidth: "100%",
-          }}
-        />
-      </ReactCrop>
-    </div>
-  )
-}
+
+      {/* クロップモーダル */}
+
+      {
+        showCropModal
+        && imageSrc && (
+          <div
+            style={{
+              position: "fixed",
+
+              inset: 0,
+
+              background:
+                "rgba(0,0,0,0.7)",
+
+              display: "flex",
+
+              justifyContent:
+                "center",
+
+              alignItems:
+                "center",
+
+              zIndex: 9999,
+            }}
+          >
+            <div
+              style={{
+                background:
+                  "white",
+
+                padding:
+                  "20px",
+
+                borderRadius:
+                  "12px",
+
+                maxWidth:
+                  "500px",
+
+                width: "90%",
+              }}
+            >
+              <h2>
+                アイコンを調整
+              </h2>
+
+              <ReactCrop
+                crop={crop}
+
+                onChange={(c) =>
+                  setCrop(c)
+                }
+
+                aspect={1}
+              >
+                <img
+                  src={imageSrc}
+
+                  alt="Crop"
+
+                  style={{
+                    maxWidth:
+                      "100%",
+                  }}
+                />
+              </ReactCrop>
+
+              <button
+                onClick={() =>
+                  setShowCropModal(
+                    false
+                  )
+                }
+
+                style={{
+                  marginTop:
+                    "20px",
+
+                  padding:
+                    "10px 20px",
+
+                  fontSize:
+                    "16px",
+                }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )
+      }
+
       {/* Canvas */}
 
       <div
         style={{
           marginTop: "20px",
+
           display: "flex",
+
           justifyContent:
             "center",
         }}
       >
         <canvas
           ref={canvasRef}
+
           width={1051}
+
           height={1500}
+
           style={{
             width: "350px",
-            background: "white",
+
+            background:
+              "white",
+
             border:
               "1px solid #ccc",
           }}
