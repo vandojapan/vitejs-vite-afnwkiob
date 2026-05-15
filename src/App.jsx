@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { HexColorPicker }
-  from "react-colorful";
+import { SketchPicker }
+  from "react-color";
 
 function App() {
   const canvasRef = useRef(null);
@@ -177,15 +177,17 @@ function App() {
         }}
       />
 
-<div
+ <div
   style={{
     marginTop: "20px",
     marginBottom: "20px",
   }}
 >
-  <HexColorPicker
+  <SketchPicker
     color={bgColor}
-    onChange={setBgColor}
+    onChange={(color) =>
+      setBgColor(color.hex)
+    }
   />
 
   <p>
