@@ -39,7 +39,7 @@ function App() {
       width: 80,
       aspect: 1,
     });
-
+const imgRef = useRef(null);
   // ===== 名札生成 =====
 
   const renderCard = () => {
@@ -293,7 +293,78 @@ function App() {
 
     ctx.stroke();
   }
+const applyCrop = () => {
+  if (
+    !imgRef.current ||
+    !crop.width ||
+    !crop.height
+  ) {
+    return;
+  }
 
+  const image = imgRef.current;
+
+  const canvas =
+    document.createElement("canvas");
+
+  const ctx =
+    canvas.getContext("2d");
+
+  const scaleX =
+    image.naturalWidth / image.width;
+
+  const scaleY =
+    image.naturalHeight / image.height;
+
+  const pixelRatio =
+    window.devicePixelRatio;
+
+  canvas.width =
+    crop.width * scaleX * pixelRatio;
+
+  canvas.height =
+    crop.height * scaleY * pixelRatio;
+
+  ctx.setTransform(
+    pixelRatio,
+    0,
+    0,
+    pixelRatio,
+    0,
+    0
+  );
+
+  ctx.imageSmoothingQuality =
+    "high";
+
+  ctx.drawImage(
+    image,
+
+    crop.x * scaleX,
+    crop.y * scaleY,
+
+    crop.width * scaleX,
+    crop.height * scaleY,
+
+    0,
+    0,
+
+    crop.width * scaleX,
+    crop.height * scaleY
+  );
+
+  const croppedImage =
+    new Image();
+
+  croppedImage.onload = () => {
+    setIconImage(croppedImage);
+
+    setShowCropModal(false);
+  };
+
+  croppedImage.src =
+    canvas.toDataURL("image/png");
+};
   // ===== PNG保存 =====
 
   const saveCard = () => {
@@ -517,8 +588,11 @@ function App() {
               justifyContent:
                 "center",
 
-              alignItems:
-                "center",
+              alignItems: "flex-start",
+							overflowY: "auto",
+							padding: "20px",
+              marginTop: "40px",
+							marginBottom: "40px",
 
               zIndex: 9999,
             }}
@@ -554,7 +628,8 @@ function App() {
                 aspect={1}
               >
                 <img
-                  src={imageSrc}
+  									ref={imgRef}
+  									src={imageSrc}
 
                   alt="Crop"
 
@@ -566,11 +641,7 @@ function App() {
               </ReactCrop>
 
               <button
-                onClick={() =>
-                  setShowCropModal(
-                    false
-                  )
-                }
+                onClick={applyCrop}
 
                 style={{
                   marginTop:
