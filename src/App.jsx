@@ -50,6 +50,7 @@ function App() {
     return brightness > 186 ? "#000000" : "#ffffff";
   };
 
+
   // ===== 名札生成 =====
 
   const renderCard = () => {
@@ -391,45 +392,26 @@ function App() {
         }}
       >
         <button
+          className="app-button"
           onClick={renderCard}
-          style={{
-            padding:
-              "10px 20px",
-
-            fontSize: "16px",
-          }}
         >
           生成
         </button>
 
         <button
+          className="app-button"
           onClick={saveCard}
-          style={{
-            marginLeft: "10px",
-
-            padding:
-              "10px 20px",
-
-            fontSize: "16px",
-          }}
         >
           PNG保存
         </button>
 
         <button
+          className="app-button"
           onClick={() =>
             setShowColorPicker(
               !showColorPicker
             )
           }
-          style={{
-            marginLeft: "10px",
-
-            padding:
-              "10px 20px",
-
-            fontSize: "16px",
-          }}
         >
           色設定
         </button>
@@ -579,21 +561,15 @@ function App() {
               </ReactCrop>
 
               <button
+                className="app-button"
                 onClick={() =>
                   setShowCropModal(
                     false
                   )
                 }
-
                 style={{
                   marginTop:
                     "20px",
-
-                  padding:
-                    "10px 20px",
-
-                  fontSize:
-                    "16px",
                 }}
               >
                 OK
