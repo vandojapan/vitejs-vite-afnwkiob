@@ -1,0 +1,6 @@
+name = "vitejs-vite-afnwkiob-worker"
+main = "cloudflare-worker.js"
+compatibility_date = "2026-05-15"
+
+[build]
+upload = { format = "service-worker" }
