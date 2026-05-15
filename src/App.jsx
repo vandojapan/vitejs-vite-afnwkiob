@@ -528,10 +528,23 @@ const applyCrop = () => {
         accept="image/*"
 
         onChange={(e) => {
-          const file =
-            e.target.files[0];
+        const file = e.target.files[0];
 
-          if (!file) return;
+				if (!file) return;
+
+				// ===== MIMEチェック =====
+				const allowedTypes = [
+		  		"image/png",
+  				"image/jpeg",
+  				"image/jpg",
+  				"image/heif",
+  				"image/gif",
+];
+
+if (!allowedTypes.includes(file.type)) {
+  alert("対応していない画像形式です");
+  return;
+}
 
           const reader =
             new FileReader();
