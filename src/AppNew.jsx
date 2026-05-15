@@ -6,7 +6,7 @@ import ReactCrop from "react-image-crop";
 
 import "react-image-crop/dist/ReactCrop.css";
 
-function App() {
+function AppNew() {
   const canvasRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState("simple");
@@ -18,10 +18,44 @@ function App() {
   const [imageSrc, setImageSrc] = useState(null);
   const [showCropModal, setShowCropModal] = useState(false);
   const [crop, setCrop] = useState({ unit: "%", width: 80, aspect: 1 });
+  const [accountUrl, setAccountUrl] = useState("");
   const [url, setUrl] = useState("");
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState(null);
   const [avatarError, setAvatarError] = useState("");
   const [simpleLoading, setSimpleLoading] = useState(false);
+
+  const parseUsernameFromUrl = (value) => {
+    const input = value.trim();
+    if (!input) return "";
+    let maybeUrl = input;
+    if (!/^https?:\/\//i.test(maybeUrl)) {
+      maybeUrl = `https://${maybeUrl}`;
+    }
+    try {
+      const parsed = new URL(maybeUrl);
+      const host = parsed.host.replace(/^www\./i, "");
+      const path = parsed.pathname.replace(/\/+$|^\/+/, "");
+      const segments = path.split("/").filter(Boolean);
+      if (!segments.length) return "";
+      if (host.includes("x.com") || host.includes("twitter.com")) {
+        return segments[0];
+      }
+      if (host.includes("youtube.com")) {
+        const first = segments[0];
+        if (first.startsWith("@")) return first.replace(/^@/, "");
+        if (["c", "channel", "user"].includes(first) && segments[1]) return segments[1];
+        return first;
+      }
+      if (host.includes("youtu.be")) {
+        return segments[0];
+      }
+      return segments[segments.length - 1];
+    } catch {
+      return "";
+    }
+  };
+
+  const TWITTER_API_TOKEN = import.meta.env.VITE_X_API_TOKEN || "";
 
   const getContrastTextColor = (hex) => {
     const normalized = hex.replace("#", "");
@@ -43,21 +77,71 @@ function App() {
     });
   };
 
-  const loadUnavatar = async (identifier) => {
-    if (!identifier.trim()) {
-      setAvatarError("名前を入力してから実行してください。");
+  const fetchTwitterProfileImage = async (username) => {
+    if (!TWITTER_API_TOKEN) {
+      throw new Error("X API トークンが設定されていません");
+    }
+
+    try {
+      const response = await fetch(
+        `https://api.twitter.com/2/users/by/username/${encodeURIComponent(username)}?user.fields=profile_image_url`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${TWITTER_API_TOKEN}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`X API エラー: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (!data.data?.profile_image_url) {
+        throw new Error("プロフィール画像 URL が見つかりません");
+      }
+
+      return data.data.profile_image_url.replace("_normal", "_400x400");
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const loadXProfileImage = async () => {
+    const identifier = accountUrl.trim();
+    if (!identifier) {
+      setAvatarError("アカウント URL を入力してから実行してください。");
       return;
     }
 
+    const parsedName = parseUsernameFromUrl(accountUrl);
+    if (!parsedName) {
+      setAvatarError("有効な X アカウント URL ではありません。");
+      return;
+    }
+
+    if (!accountUrl.includes("x.com") && !accountUrl.includes("twitter.com")) {
+      setAvatarError("X (Twitter) のアカウント URL を入力してください。");
+      return;
+    }
+
+    setName(parsedName);
     setAvatarError("");
     setSimpleLoading(true);
 
-    const avatarUrl = `https://unavatar.io/${encodeURIComponent(identifier)}?fallback=identicon`;
     try {
-      const img = await loadRemoteImage(avatarUrl);
+      const imageUrl = await fetchTwitterProfileImage(parsedName);
+      const img = await loadRemoteImage(imageUrl);
       setIconImage(img);
     } catch (error) {
-      setAvatarError("unavatar.io からアイコンを取得できませんでした。");
+      if (error.message.includes("トークンが設定されていません")) {
+        setAvatarError("X API 認証設定が必要です。");
+      } else if (error.message.includes("404") || error.message.includes("not found")) {
+        setAvatarError("このアカウントは見つかりません。");
+      } else {
+        setAvatarError(`エラー: ${error.message}`);
+      }
     } finally {
       setSimpleLoading(false);
     }
@@ -152,7 +236,7 @@ function App() {
       ctx.fillText(subText || "", cardX + cardWidth / 2, cardY + cardHeight / 2 + 80);
     }
 
-    const qrSize = cardHeight / 3;
+    const qrSize = cardHeight * 0.22;
     const qrPadding = 24;
     if (qrCodeDataUrl) {
       try {
@@ -168,7 +252,7 @@ function App() {
     drawTrimMarks(ctx, cardX, cardY, cardWidth, cardHeight);
   };
 
-  function drawTrimMarks(ctx, x, y, w, h) {
+  const drawTrimMarks = (ctx, x, y, w, h) => {
     const trim = 30;
     ctx.strokeStyle = "#000000";
     ctx.lineWidth = 2;
@@ -200,7 +284,7 @@ function App() {
     ctx.moveTo(x + w, y + h + trim);
     ctx.lineTo(x + w, y + h);
     ctx.stroke();
-  }
+  };
 
   const saveCard = () => {
     const canvas = canvasRef.current;
@@ -237,9 +321,20 @@ function App() {
             名前
             <input
               type="text"
-              placeholder="名前を入力"
+              placeholder="unavatar取得で反映"
               value={name}
               onChange={(e) => setName(e.target.value)}
+            />
+          </label>
+        </div>
+        <div className="field-group">
+          <label>
+            アカウントURL
+            <input
+              type="text"
+              placeholder="X / YouTube アカウント URL"
+              value={accountUrl}
+              onChange={(e) => setAccountUrl(e.target.value)}
             />
           </label>
         </div>
@@ -250,13 +345,13 @@ function App() {
               <button
                 className="app-button"
                 type="button"
-                onClick={() => loadUnavatar(name)}
-                disabled={simpleLoading || !name.trim()}
+                onClick={loadXProfileImage}
+                disabled={simpleLoading || !accountUrl.trim()}
               >
-                {simpleLoading ? "取得中…" : "unavatar でアイコン取得"}
+                {simpleLoading ? "取得中…" : "X でアイコン取得"}
               </button>
             </div>
-            <p className="help-text">名前を元に unavatar.io からアイコンを取得します。</p>
+            <p className="help-text">X (Twitter) アカウント URL を入力してプロフィール画像を取得します。</p>
             {avatarError && <p className="error-text">{avatarError}</p>}
             {iconImage && (
               <div className="preview-block">
@@ -332,13 +427,6 @@ function App() {
         </label>
       </div>
 
-      {qrCodeDataUrl && (
-        <div className="qr-preview">
-          <img src={qrCodeDataUrl} alt="QRコードプレビュー" />
-          <p>右下に QR コードを配置します。</p>
-        </div>
-      )}
-
       <div className="button-row">
         <button className="app-button" type="button" onClick={renderCard}>
           生成
@@ -369,4 +457,4 @@ function App() {
   );
 }
 
-export default App;
+export default AppNew;

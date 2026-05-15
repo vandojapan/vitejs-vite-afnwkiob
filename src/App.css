@@ -182,3 +182,139 @@
     border-right-color: var(--border);
   }
 }
+
+.app-shell {
+  padding: 24px;
+  background: #f4f4f4;
+  min-height: 100vh;
+}
+
+.tab-bar {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.tab-button {
+  padding: 10px 18px;
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.tab-button.active {
+  background: #333;
+  color: #fff;
+  border-color: #333;
+}
+
+.tab-panel {
+  margin-top: 18px;
+  padding: 20px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid #ddd;
+}
+
+.field-group {
+  margin-bottom: 18px;
+}
+
+.field-group label {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.field-group input[type="text"],
+.field-group input[type="file"] {
+  padding: 10px 12px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.url-group {
+  margin-top: 18px;
+}
+
+.qr-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.qr-preview img {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+}
+
+.button-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.app-button {
+  padding: 10px 18px;
+  font-size: 16px;
+  border: 1px solid #333;
+  background: #333;
+  color: white;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.app-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.colour-picker-panel,
+.color-picker-panel {
+  margin-top: 14px;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal-card {
+  width: min(560px, 90%);
+  background: #fff;
+  padding: 24px;
+  border-radius: 20px;
+}
+
+.preview-block {
+  margin-top: 16px;
+}
+
+.avatar-preview {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 24px;
+  border: 1px solid #ddd;
+}
