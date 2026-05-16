@@ -34,6 +34,7 @@ const PAPER_SIZES = {
 };
 
 const FONT_FAMILIES = [
+  { id: "default", label: "デフォルト", css: "sans-serif" },
   { id: "DotGothic16", label: "DotGothic16", css: "'DotGothic16', sans-serif" },
   { id: "IBM Plex Sans", label: "IBM Plex Sans", css: "'IBM Plex Sans', sans-serif" },
   { id: "RocknRoll One", label: "RocknRoll One", css: "'RocknRoll One', sans-serif" },
@@ -67,7 +68,7 @@ function App() {
   const [subText, setSubText] = useState("");
   const [bgColor, setBgColor] = useState("#333333");
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const [fontFamily, setFontFamily] = useState(FONT_FAMILIES[1].css);
+  const [fontFamily, setFontFamily] = useState(FONT_FAMILIES[0].css);
   const [iconImage, setIconImage] = useState(null);
 
   useEffect(() => {
@@ -606,7 +607,7 @@ function App() {
       ctx.translate(-(x + width / 2), -(y + height / 2));
     }
 
-    const fontWeight = isFontAvailable(fontFamily) ? "normal" : "bold";
+    const fontWeight = fontFamily === "sans-serif" ? "bold" : "normal";
 
     if (iconImage) {
       const isSinglePanel = panelCount === 1;
