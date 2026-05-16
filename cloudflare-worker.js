@@ -17,7 +17,7 @@ async function handleRequest(request) {
   }
 
   const url = new URL(request.url);
-  const pathname = url.pathname.replace(/\/+$|^\/|\/$/g, "");
+  const pathname = url.pathname.replace(/^\/+|\/+$/g, "");
 
   if (pathname === "api/avatar" || url.pathname.endsWith("/api/avatar") || url.pathname.endsWith("/api/avatar/")) {
     return handleAvatar(request, url);
@@ -25,6 +25,15 @@ async function handleRequest(request) {
 
   if (pathname === "api/profile" || url.pathname.endsWith("/api/profile") || url.pathname.endsWith("/api/profile/")) {
     return handleProfile(request, url);
+  }
+
+  if (pathname === "" || pathname === "index.html") {
+    if (url.searchParams.has("target")) {
+      return handleAvatar(request, url);
+    }
+    if (url.searchParams.has("url")) {
+      return handleProfile(request, url);
+    }
   }
 
   return jsonResponse({ error: "not found", path: url.pathname }, 404);
