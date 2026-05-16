@@ -8,7 +8,9 @@ import "./App.css";
 
 const PROFILE_WORKER_URL = import.meta.env.VITE_PROFILE_WORKER_URL || "";
 const PRINT_DPI = 300;
-const CARD_MARGIN_PX = Math.round((3 / 25.4) * PRINT_DPI);
+const BLEED_PX = Math.round((3 / 25.4) * PRINT_DPI);
+const CARD_WIDTH = Math.round((91 / 25.4) * PRINT_DPI);
+const CARD_HEIGHT = Math.round((55 / 25.4) * PRINT_DPI);
 
 const PAPER_SIZES = {
   postcard: {
@@ -25,9 +27,9 @@ const PAPER_SIZES = {
   },
   card: {
     label: "カード",
-    width: 1011,
-    height: 638,
-    previewWidth: 430,
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+    previewWidth: 280,
   },
 };
 
@@ -44,6 +46,7 @@ function App() {
 
   const [activeTab, setActiveTab] = useState("simple");
   const [paperSize, setPaperSize] = useState("photo");
+  const [useCardStyle, setUseCardStyle] = useState(false);
   const [panelCount, setPanelCount] = useState(1);
   const [showTrimMarks, setShowTrimMarks] = useState(true);
   const [profileService, setProfileService] = useState("x");
@@ -65,7 +68,7 @@ function App() {
   const [statusMessage, setStatusMessage] = useState("");
 
   const selectedPaper = PAPER_SIZES[paperSize];
-  const isBorderlessPaper = paperSize === "photo" || paperSize === "postcard";
+  const isBorderlessPaper = !useCardStyle && (paperSize === "photo" || paperSize === "postcard");
 
   const outsetRect = (rect, outset) => ({
     x: rect.x - outset,
@@ -333,6 +336,41 @@ function App() {
     }
 
     const gutter = Math.round(Math.min(paper.width, paper.height) * 0.045);
+
+    if (useCardStyle) {
+      const availableWidth = paper.width - gutter * 2;
+      const availableHeight =
+        panelCount === 2
+          ? (paper.height - gutter * 3) / 2
+          : paper.height - gutter * 2;
+      const cardAspect = CARD_WIDTH / CARD_HEIGHT;
+      let cardWidth = CARD_WIDTH;
+      let cardHeight = CARD_HEIGHT;
+
+      if (cardWidth > availableWidth) {
+        cardWidth = availableWidth;
+        cardHeight = Math.round(cardWidth / cardAspect);
+      }
+
+      if (cardHeight > availableHeight) {
+        cardHeight = availableHeight;
+        cardWidth = Math.round(cardHeight * cardAspect);
+      }
+
+      const x = (paper.width - cardWidth) / 2;
+      const y =
+        panelCount === 2
+          ? gutter + index * (availableHeight + gutter) + (availableHeight - cardHeight) / 2
+          : (paper.height - cardHeight) / 2;
+
+      return {
+        x,
+        y,
+        width: cardWidth,
+        height: cardHeight,
+      };
+    }
+
     const availableWidth = paper.width - gutter * 2;
     const availableHeight =
       panelCount === 2
@@ -363,7 +401,7 @@ function App() {
   };
 
   const drawTrimMarks = (ctx, x, y, w, h) => {
-    const trim = 30;
+    const trim = BLEED_PX;
 
     ctx.strokeStyle = "#000000";
     ctx.lineWidth = 2;
@@ -433,6 +471,66 @@ function App() {
     ctx.fill();
   };
 
+  const wrapText = (ctx, text, maxWidth, maxLines) => {
+    const words = text.trim().split(/\s+/);
+    const lines = [];
+    let currentLine = "";
+
+    const pushLine = (line) => {
+      if (lines.length < maxLines) {
+        lines.push(line);
+      }
+    };
+
+    for (const word of words) {
+      const candidate = currentLine ? `${currentLine} ${word}` : word;
+      if (ctx.measureText(candidate).width <= maxWidth) {
+        currentLine = candidate;
+        continue;
+      }
+
+      if (!currentLine) {
+        let partial = "";
+        for (const char of word) {
+          const next = `${partial}${char}`;
+          if (ctx.measureText(next).width > maxWidth) {
+            pushLine(partial);
+            partial = char;
+            if (lines.length >= maxLines) break;
+          } else {
+            partial = next;
+          }
+        }
+        if (lines.length < maxLines && partial) {
+          currentLine = partial;
+        }
+      } else {
+        pushLine(currentLine);
+        currentLine = word;
+        if (lines.length >= maxLines - 1) break;
+      }
+    }
+
+    if (currentLine && lines.length < maxLines) {
+      pushLine(currentLine);
+    }
+
+    if (lines.length > maxLines) {
+      lines.length = maxLines;
+    }
+
+    return lines.map((line, index) => {
+      if (index === lines.length - 1 && lines.length === maxLines && ctx.measureText(line).width > maxWidth) {
+        let truncated = line;
+        while (truncated.length > 0 && ctx.measureText(`${truncated}…`).width > maxWidth) {
+          truncated = truncated.slice(0, -1);
+        }
+        return `${truncated}…`;
+      }
+      return line;
+    });
+  };
+
   const drawCardFace = async (ctx, rect, options = {}) => {
     const { x, y, width, height } = rect;
     const {
@@ -444,6 +542,7 @@ function App() {
     } = options;
     const contrastTextColor = getContrastTextColor(bgColor);
     const centerX = x + width / 2;
+    const nameYOffset = panelCount === 1 ? -60 : 0;
 
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(x, y, width, height);
@@ -499,7 +598,7 @@ function App() {
       ctx.fillText(
         name || "名無し",
         centerX,
-        y + height * (isSinglePanel ? 0.78 : 0.8),
+        y + height * (isSinglePanel ? 0.78 : 0.8) + nameYOffset,
         width * 0.82,
       );
     } else {
@@ -507,12 +606,19 @@ function App() {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.font = `bold ${Math.round(height * 0.16)}px sans-serif`;
-      ctx.fillText(name || "名無し", centerX, y + height * 0.42, width * 0.82);
+      ctx.fillText(name || "名無し", centerX, y + height * 0.42 + nameYOffset, width * 0.82);
 
       if (subText.trim()) {
         ctx.fillStyle = "#000000";
         ctx.font = `${Math.round(height * 0.08)}px sans-serif`;
-        ctx.fillText(subText, centerX, y + height * (5 / 6), width * 0.78);
+        const lineHeight = Math.round(height * 0.08 * 1.3);
+        const maxWidth = width * 0.78;
+        const lines = wrapText(ctx, subText, maxWidth, 2);
+        const baseY = y + height * (5 / 6) + nameYOffset - (lineHeight * (lines.length - 1)) / 2;
+
+        lines.forEach((line, index) => {
+          ctx.fillText(line, centerX, baseY + index * lineHeight, maxWidth);
+        });
       }
     }
 
@@ -564,16 +670,18 @@ function App() {
 
     for (const index of faces) {
       const rect = getCardRect(selectedPaper, index);
-      const backgroundRect =
-        paperSize === "card" ? outsetRect(rect, CARD_MARGIN_PX) : rect;
-      const backgroundPosition =
-        isBorderlessPaper && panelCount === 2 && index === 0 ? "bottom" : "top";
       const trimMarks = showTrimMarks && !isBorderlessPaper;
+      const backgroundRect = useCardStyle ? outsetRect(rect, BLEED_PX) : trimMarks ? outsetRect(rect, BLEED_PX) : rect;
+      const backgroundPosition = useCardStyle
+        ? "top"
+        : isBorderlessPaper && panelCount === 2 && index === 0
+        ? "bottom"
+        : "top";
 
       await drawCardFace(ctx, rect, {
         backgroundRect,
         backgroundPosition,
-        rotateContent: panelCount === 2 && index === 0,
+        rotateContent: !useCardStyle && panelCount === 2 && index === 0,
         trimMarks,
         trimRect: rect,
       });
@@ -589,6 +697,54 @@ function App() {
     link.download = "event-namecard.png";
     link.href = canvas.toDataURL("image/png");
     link.click();
+  };
+
+  const shareCard = async () => {
+    await renderCard();
+
+    const canvas = canvasRef.current;
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+
+    if (!blob) {
+      setStatusMessage("画像の準備に失敗しました。再試行してください。");
+      return;
+    }
+
+    const file = new File([blob], "event-namecard.png", { type: "image/png" });
+    const shareData = {
+      title: "イベント名札",
+      text: "作成した名札を共有します。",
+      files: [file],
+    };
+
+    if (
+      navigator.share &&
+      (typeof navigator.canShare === "undefined" || navigator.canShare({ files: [file] }))
+    ) {
+      try {
+        await navigator.share(shareData);
+        setStatusMessage("共有が完了しました。");
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          setStatusMessage("共有に失敗しました。別の方法をお試しください。");
+        }
+      }
+      return;
+    }
+
+    if (navigator.clipboard && window.ClipboardItem) {
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({ [file.type]: blob }),
+        ]);
+        setStatusMessage("画像をクリップボードにコピーしました。貼り付けて共有できます。");
+      } catch {
+        setStatusMessage("共有に対応していないブラウザです。PNG保存してください。");
+      }
+      return;
+    }
+
+    setStatusMessage("このブラウザは画像共有に対応していません。PNG保存してください。");
   };
 
   const handleFileSelect = (event) => {
@@ -627,18 +783,29 @@ function App() {
             <div className="field-group">
               <span className="field-label">サイズ</span>
               <div className="segmented">
-                {Object.entries(PAPER_SIZES).map(([id, paper]) => (
-                  <button
-                    className={paperSize === id ? "is-active" : ""}
-                    key={id}
-                    onClick={() => setPaperSize(id)}
-                    type="button"
-                  >
-                    {paper.label}
-                  </button>
-                ))}
+                {Object.entries(PAPER_SIZES)
+                  .filter(([id]) => id !== "card")
+                  .map(([id, paper]) => (
+                    <button
+                      className={paperSize === id ? "is-active" : ""}
+                      key={id}
+                      onClick={() => setPaperSize(id)}
+                      type="button"
+                    >
+                      {paper.label}
+                    </button>
+                  ))}
               </div>
             </div>
+
+            <label className="field-group checkbox-field">
+              <input
+                checked={useCardStyle}
+                onChange={(event) => setUseCardStyle(event.target.checked)}
+                type="checkbox"
+              />
+              <span>カードにする</span>
+            </label>
 
             <div className="field-group">
               <span className="field-label">面数</span>
@@ -817,6 +984,9 @@ function App() {
             </button>
             <button className="app-button secondary" onClick={saveCard} type="button">
               PNG保存
+            </button>
+            <button className="app-button secondary" onClick={shareCard} type="button">
+              共有
             </button>
           </div>
         </div>
