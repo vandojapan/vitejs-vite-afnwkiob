@@ -111,7 +111,21 @@ function App() {
         throw new Error(`Worker responded ${response.status}`);
       }
 
-      const profile = await response.json();
+      const contentType = response.headers.get("content-type") || "";
+      const responseText = await response.text();
+
+      if (!contentType.includes("application/json")) {
+        const isHtml = responseText.trim().startsWith("<!doctype")
+          || responseText.trim().startsWith("<html");
+
+        throw new Error(
+          isHtml
+            ? "Worker URLがHTMLを返しています。.env の VITE_PROFILE_WORKER_URL がViteアプリや存在しないパスを指していないか確認してください。"
+            : "Worker response is not JSON",
+        );
+      }
+
+      const profile = JSON.parse(responseText);
       const nextName = profile.name || profile.title || profile.displayName;
       const nextIconUrl =
         profile.iconUrl || profile.avatarUrl || profile.image || profile.icon;
