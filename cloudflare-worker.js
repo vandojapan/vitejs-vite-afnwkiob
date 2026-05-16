@@ -17,16 +17,17 @@ async function handleRequest(request) {
   }
 
   const url = new URL(request.url);
+  const pathname = url.pathname.replace(/\/+$|^\/|\/$/g, "");
 
-  if (url.pathname === "/api/avatar") {
+  if (pathname === "api/avatar" || url.pathname.endsWith("/api/avatar") || url.pathname.endsWith("/api/avatar/")) {
     return handleAvatar(request, url);
   }
 
-  if (url.pathname === "/api/profile") {
+  if (pathname === "api/profile" || url.pathname.endsWith("/api/profile") || url.pathname.endsWith("/api/profile/")) {
     return handleProfile(request, url);
   }
 
-  return jsonResponse({ error: "not found" }, 404);
+  return jsonResponse({ error: "not found", path: url.pathname }, 404);
 }
 
 async function handleAvatar(request, url) {
