@@ -1,6 +1,6 @@
-name = "vitejs-vite-afnwkiob-worker"
+name = "vitejs-vite-afnwkiob"
 main = "cloudflare-worker.js"
 compatibility_date = "2026-05-15"
 
 [build]
-upload = { format = "modules" }
+command = "npm run build"
