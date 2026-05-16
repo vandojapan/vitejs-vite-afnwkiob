@@ -501,7 +501,6 @@ function App() {
     try {
       await Promise.allSettled([
         document.fonts.load(`400 1em "${normalized}"`),
-        document.fonts.load(`700 1em "${normalized}"`),
       ]);
       await document.fonts.ready;
     } catch {
@@ -630,7 +629,7 @@ function App() {
       ctx.stroke();
 
       ctx.fillStyle = "#111111";
-      ctx.font = `bold ${Math.round(height * (isSinglePanel ? 0.095 : 0.115))}px ${fontFamily}`;
+      ctx.font = `normal ${Math.round(height * (isSinglePanel ? 0.095 : 0.115))}px ${fontFamily}`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(
@@ -643,12 +642,12 @@ function App() {
       ctx.fillStyle = contrastTextColor;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = `bold ${Math.round(height * 0.16)}px ${fontFamily}`;
+      ctx.font = `normal ${Math.round(height * 0.16)}px ${fontFamily}`;
       ctx.fillText(name || "名無し", centerX, y + height * 0.42 + nameYOffset, width * 0.82);
 
       if (subText.trim()) {
         ctx.fillStyle = "#000000";
-        ctx.font = `${Math.round(height * 0.08)}px ${fontFamily}`;
+        ctx.font = `normal ${Math.round(height * 0.08)}px ${fontFamily}`;
         const lineHeight = Math.round(height * 0.08 * 1.3);
         const maxWidth = width * 0.78;
         const lines = wrapText(ctx, subText, maxWidth, 2);
