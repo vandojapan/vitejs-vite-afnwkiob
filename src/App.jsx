@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { TwitterPicker } from "react-color";
 import ReactCrop from "react-image-crop";
@@ -33,6 +33,17 @@ const PAPER_SIZES = {
   },
 };
 
+const FONT_FAMILIES = [
+  { id: "DotGothic16", label: "DotGothic16", css: "'DotGothic16', sans-serif" },
+  { id: "IBM Plex Sans", label: "IBM Plex Sans", css: "'IBM Plex Sans', sans-serif" },
+  { id: "RocknRoll One", label: "RocknRoll One", css: "'RocknRoll One', sans-serif" },
+  { id: "Kaisei Decol", label: "Kaisei Decol", css: "'Kaisei Decol', sans-serif" },
+  { id: "Kaisei HarunoUmi", label: "Kaisei HarunoUmi", css: "'Kaisei HarunoUmi', sans-serif" },
+  { id: "Kaisei Opti", label: "Kaisei Opti", css: "'Kaisei Opti', sans-serif" },
+  { id: "Kosugi Maru", label: "Kosugi Maru", css: "'Kosugi Maru', sans-serif" },
+  { id: "Kosugi", label: "Kosugi", css: "'Kosugi', sans-serif" },
+];
+
 const PROFILE_SERVICES = [
   { id: "x", label: "X" },
   { id: "instagram", label: "Instagram" },
@@ -56,7 +67,12 @@ function App() {
   const [subText, setSubText] = useState("");
   const [bgColor, setBgColor] = useState("#333333");
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [fontFamily, setFontFamily] = useState(FONT_FAMILIES[1].css);
   const [iconImage, setIconImage] = useState(null);
+
+  useEffect(() => {
+    ensureFontLoaded(fontFamily);
+  }, [fontFamily]);
   const [imageSrc, setImageSrc] = useState(null);
   const [showCropModal, setShowCropModal] = useState(false);
   const [crop, setCrop] = useState({
@@ -471,6 +487,28 @@ function App() {
     ctx.fill();
   };
 
+  const normalizeFontFamily = (cssFontFamily) => {
+    const family = cssFontFamily.split(",")[0].trim();
+    return family.replace(/^['"]+|['"]+$/g, "");
+  };
+
+  const ensureFontLoaded = async (cssFontFamily) => {
+    if (typeof document === "undefined" || !document.fonts || !document.fonts.load) {
+      return;
+    }
+
+    const normalized = normalizeFontFamily(cssFontFamily);
+    try {
+      await Promise.allSettled([
+        document.fonts.load(`400 1em "${normalized}"`),
+        document.fonts.load(`700 1em "${normalized}"`),
+      ]);
+      await document.fonts.ready;
+    } catch {
+      // ignore font loading failures and render with fallback
+    }
+  };
+
   const wrapText = (ctx, text, maxWidth, maxLines) => {
     const words = text.trim().split(/\s+/);
     const lines = [];
@@ -592,7 +630,7 @@ function App() {
       ctx.stroke();
 
       ctx.fillStyle = "#111111";
-      ctx.font = `bold ${Math.round(height * (isSinglePanel ? 0.095 : 0.115))}px sans-serif`;
+      ctx.font = `bold ${Math.round(height * (isSinglePanel ? 0.095 : 0.115))}px ${fontFamily}`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(
@@ -605,12 +643,12 @@ function App() {
       ctx.fillStyle = contrastTextColor;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = `bold ${Math.round(height * 0.16)}px sans-serif`;
+      ctx.font = `bold ${Math.round(height * 0.16)}px ${fontFamily}`;
       ctx.fillText(name || "名無し", centerX, y + height * 0.42 + nameYOffset, width * 0.82);
 
       if (subText.trim()) {
         ctx.fillStyle = "#000000";
-        ctx.font = `${Math.round(height * 0.08)}px sans-serif`;
+        ctx.font = `${Math.round(height * 0.08)}px ${fontFamily}`;
         const lineHeight = Math.round(height * 0.08 * 1.3);
         const maxWidth = width * 0.78;
         const lines = wrapText(ctx, subText, maxWidth, 2);
@@ -648,6 +686,8 @@ function App() {
   const renderCard = async () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
+
+    await ensureFontLoaded(fontFamily);
 
     canvas.width = selectedPaper.width;
     canvas.height = selectedPaper.height;
@@ -769,7 +809,7 @@ function App() {
   };
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" style={{ fontFamily }}>
       <section className="workspace">
         <div className="control-pane">
           <header className="app-header">
@@ -939,6 +979,20 @@ function App() {
                   />
                 </label>
               )}
+
+              <label className="field-group">
+                <span className="field-label">フォント</span>
+                <select
+                  value={fontFamily}
+                  onChange={(event) => setFontFamily(event.target.value)}
+                >
+                  {FONT_FAMILIES.map((font) => (
+                    <option key={font.id} value={font.css}>
+                      {font.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
               <label className="field-group">
                 <span className="field-label">アイコン画像</span>
