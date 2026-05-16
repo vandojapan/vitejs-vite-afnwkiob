@@ -78,7 +78,9 @@ function App() {
       const image = new Image();
       image.crossOrigin = "anonymous";
       image.onload = () => resolve(image);
-      image.onerror = reject;
+      image.onerror = () => {
+        reject(new Error(`アイコン画像を読み込めませんでした: ${src}`));
+      };
       image.src = src;
     });
 
@@ -134,16 +136,32 @@ function App() {
         setName(nextName);
       }
 
+      let iconWarning = "";
+
       if (nextIconUrl) {
-        const image = await loadImage(nextIconUrl);
-        setIconImage(image);
+        try {
+          const image = await loadImage(nextIconUrl);
+          setIconImage(image);
+        } catch (error) {
+          iconWarning =
+            error instanceof Error
+              ? error.message
+              : "アイコン画像を読み込めませんでした。";
+        }
       }
 
       setQrUrl((current) => current || trimmedUrl);
-      setStatusMessage("名前とアイコンを反映しました。");
-    } catch (error) {
       setStatusMessage(
-        `取得に失敗しました。WorkerのCORS設定とレスポンス形式を確認してください。(${error.message})`,
+        iconWarning
+          ? `名前は反映しました。${iconWarning}`
+          : "名前とアイコンを反映しました。",
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "詳細不明のエラー";
+
+      setStatusMessage(
+        `取得に失敗しました。WorkerのCORS設定とレスポンス形式を確認してください。(${errorMessage})`,
       );
     } finally {
       setIsFetchingProfile(false);
