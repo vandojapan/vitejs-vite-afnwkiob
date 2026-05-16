@@ -7,6 +7,8 @@ import "react-image-crop/dist/ReactCrop.css";
 import "./App.css";
 
 const PROFILE_WORKER_URL = import.meta.env.VITE_PROFILE_WORKER_URL || "";
+const PRINT_DPI = 300;
+const CARD_MARGIN_PX = Math.round((3 / 25.4) * PRINT_DPI);
 
 const PAPER_SIZES = {
   postcard: {
@@ -43,6 +45,7 @@ function App() {
   const [activeTab, setActiveTab] = useState("simple");
   const [paperSize, setPaperSize] = useState("photo");
   const [panelCount, setPanelCount] = useState(1);
+  const [showTrimMarks, setShowTrimMarks] = useState(true);
   const [profileService, setProfileService] = useState("x");
   const [profileUrl, setProfileUrl] = useState("");
   const [qrUrl, setQrUrl] = useState("");
@@ -62,6 +65,14 @@ function App() {
   const [statusMessage, setStatusMessage] = useState("");
 
   const selectedPaper = PAPER_SIZES[paperSize];
+  const isBorderlessPaper = paperSize === "photo" || paperSize === "postcard";
+
+  const insetRect = (rect, inset) => ({
+    x: rect.x + inset,
+    y: rect.y + inset,
+    width: rect.width - inset * 2,
+    height: rect.height - inset * 2,
+  });
 
   const getContrastTextColor = (hex) => {
     const normalized = hex.replace("#", "");
@@ -169,6 +180,15 @@ function App() {
   };
 
   const getCardRect = (paper, index) => {
+    if (isBorderlessPaper) {
+      return {
+        x: 0,
+        y: panelCount === 2 ? (paper.height / 2) * index : 0,
+        width: paper.width,
+        height: panelCount === 2 ? paper.height / 2 : paper.height,
+      };
+    }
+
     const gutter = Math.round(Math.min(paper.width, paper.height) * 0.045);
     const availableWidth = paper.width - gutter * 2;
     const availableHeight =
@@ -238,37 +258,76 @@ function App() {
     ctx.drawImage(qrCanvas, x, y, size, size);
   };
 
-  const drawCardFace = async (ctx, rect) => {
+  const drawColorBackground = (ctx, rect, position = "top") => {
     const { x, y, width, height } = rect;
+
+    ctx.beginPath();
+
+    if (position === "bottom") {
+      ctx.moveTo(x, y + height);
+      ctx.lineTo(x, y + height * 0.5);
+      ctx.quadraticCurveTo(
+        x + width / 2,
+        y + height * 0.3,
+        x + width,
+        y + height * 0.5,
+      );
+      ctx.lineTo(x + width, y + height);
+    } else {
+      ctx.moveTo(x, y);
+      ctx.lineTo(x, y + height * 0.5);
+      ctx.quadraticCurveTo(
+        x + width / 2,
+        y + height * 0.7,
+        x + width,
+        y + height * 0.5,
+      );
+      ctx.lineTo(x + width, y);
+    }
+
+    ctx.closePath();
+    ctx.fillStyle = bgColor;
+    ctx.fill();
+  };
+
+  const drawCardFace = async (ctx, rect, options = {}) => {
+    const { x, y, width, height } = rect;
+    const {
+      backgroundPosition = "top",
+      rotateContent = false,
+      trimMarks = true,
+      trimRect = rect,
+    } = options;
     const contrastTextColor = getContrastTextColor(bgColor);
     const centerX = x + width / 2;
 
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(x, y, width, height);
 
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x, y + height * 0.55);
-    ctx.quadraticCurveTo(
-      x + width / 2,
-      y + height * 0.85,
-      x + width,
-      y + height * 0.55,
-    );
-    ctx.lineTo(x + width, y);
-    ctx.closePath();
-    ctx.fillStyle = bgColor;
-    ctx.fill();
+    drawColorBackground(ctx, rect, backgroundPosition);
+
+    if (rotateContent) {
+      ctx.save();
+      ctx.translate(x + width / 2, y + height / 2);
+      ctx.rotate(Math.PI);
+      ctx.translate(-(x + width / 2), -(y + height / 2));
+    }
 
     if (iconImage) {
-      const imageSize = Math.min(width * 0.32, height * 0.5);
+      const isSinglePanel = panelCount === 1;
+      const imageSize = Math.min(
+        width * (isSinglePanel ? 0.44 : 0.32),
+        height * (isSinglePanel ? 0.48 : 0.5),
+      );
+      const imageCenterY =
+        y + height * (isSinglePanel ? 0.34 : 1 / 3);
       const sourceSize = Math.min(iconImage.width, iconImage.height);
       const sx = (iconImage.width - sourceSize) / 2;
       const sy = (iconImage.height - sourceSize) / 2;
 
       ctx.save();
       ctx.beginPath();
-      ctx.arc(centerX, y + height * 0.36, imageSize / 2, 0, Math.PI * 2);
+      ctx.arc(centerX, imageCenterY, imageSize / 2, 0, Math.PI * 2);
       ctx.clip();
       ctx.drawImage(
         iconImage,
@@ -277,7 +336,7 @@ function App() {
         sourceSize,
         sourceSize,
         centerX - imageSize / 2,
-        y + height * 0.36 - imageSize / 2,
+        imageCenterY - imageSize / 2,
         imageSize,
         imageSize,
       );
@@ -286,14 +345,19 @@ function App() {
       ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = Math.max(8, width * 0.012);
       ctx.beginPath();
-      ctx.arc(centerX, y + height * 0.36, imageSize / 2, 0, Math.PI * 2);
+      ctx.arc(centerX, imageCenterY, imageSize / 2, 0, Math.PI * 2);
       ctx.stroke();
 
       ctx.fillStyle = "#111111";
-      ctx.font = `bold ${Math.round(height * 0.115)}px sans-serif`;
+      ctx.font = `bold ${Math.round(height * (isSinglePanel ? 0.095 : 0.115))}px sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(name || "名無し", centerX, y + height * 0.83);
+      ctx.fillText(
+        name || "名無し",
+        centerX,
+        y + height * (isSinglePanel ? 0.78 : 0.8),
+        width * 0.82,
+      );
     } else {
       ctx.fillStyle = contrastTextColor;
       ctx.textAlign = "center";
@@ -301,8 +365,11 @@ function App() {
       ctx.font = `bold ${Math.round(height * 0.16)}px sans-serif`;
       ctx.fillText(name || "名無し", centerX, y + height * 0.42, width * 0.82);
 
-      ctx.font = `${Math.round(height * 0.08)}px sans-serif`;
-      ctx.fillText(subText || "", centerX, y + height * 0.62, width * 0.78);
+      if (subText.trim()) {
+        ctx.fillStyle = "#000000";
+        ctx.font = `${Math.round(height * 0.08)}px sans-serif`;
+        ctx.fillText(subText, centerX, y + height * (5 / 6), width * 0.78);
+      }
     }
 
     await drawQrCode(
@@ -313,7 +380,19 @@ function App() {
       height * 0.15,
     );
 
-    drawTrimMarks(ctx, x, y, width, height);
+    if (rotateContent) {
+      ctx.restore();
+    }
+
+    if (trimMarks) {
+      drawTrimMarks(
+        ctx,
+        trimRect.x,
+        trimRect.y,
+        trimRect.width,
+        trimRect.height,
+      );
+    }
   };
 
   const renderCard = async () => {
@@ -341,21 +420,18 @@ function App() {
 
     for (const index of faces) {
       const rect = getCardRect(selectedPaper, index);
+      const contentRect =
+        paperSize === "card" ? insetRect(rect, CARD_MARGIN_PX) : rect;
+      const backgroundPosition =
+        isBorderlessPaper && panelCount === 2 && index === 0 ? "bottom" : "top";
+      const trimMarks = showTrimMarks && !isBorderlessPaper;
 
-      if (panelCount === 2 && index === 1) {
-        ctx.save();
-        ctx.translate(rect.x + rect.width / 2, rect.y + rect.height / 2);
-        ctx.rotate(Math.PI);
-        await drawCardFace(ctx, {
-          x: -rect.width / 2,
-          y: -rect.height / 2,
-          width: rect.width,
-          height: rect.height,
-        });
-        ctx.restore();
-      } else {
-        await drawCardFace(ctx, rect);
-      }
+      await drawCardFace(ctx, contentRect, {
+        backgroundPosition,
+        rotateContent: panelCount === 2 && index === 0,
+        trimMarks,
+        trimRect: rect,
+      });
     }
   };
 
@@ -434,6 +510,28 @@ function App() {
                 ))}
               </div>
             </div>
+
+            <fieldset className="field-group radio-group">
+              <legend className="field-label">トリムマーク</legend>
+              <label className="radio-option">
+                <input
+                  checked={showTrimMarks}
+                  name="trim-marks"
+                  onChange={() => setShowTrimMarks(true)}
+                  type="radio"
+                />
+                あり
+              </label>
+              <label className="radio-option">
+                <input
+                  checked={!showTrimMarks}
+                  name="trim-marks"
+                  onChange={() => setShowTrimMarks(false)}
+                  type="radio"
+                />
+                なし
+              </label>
+            </fieldset>
 
             <label className="field-group">
               <span className="field-label">QRコード用URL</span>

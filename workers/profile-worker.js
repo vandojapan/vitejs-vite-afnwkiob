@@ -4,8 +4,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-const serviceToUnavatar = {
-  x: "twitter",
+const serviceToUnavatarProviders = {
+  x: ["x", "twitter"],
   instagram: "instagram",
   youtube: "youtube",
   soundcloud: "soundcloud",
@@ -86,6 +86,29 @@ const extractTitle = (html) => {
   return decodeHtml(title.trim());
 };
 
+const cleanProfileName = (title, service) => {
+  if (service === "x") {
+    return title
+      .replace(/\s*\(@[^)]+\)\s*on\s*X\s*$/i, "")
+      .replace(/\s*[-|｜]\s*X\s*$/i, "")
+      .trim();
+  }
+
+  if (service === "youtube") {
+    return title.replace(/\s*-\s*YouTube\s*$/i, "").trim();
+  }
+
+  if (service === "soundcloud") {
+    return title.replace(/\s*\|\s*Listen on SoundCloud\s*$/i, "").trim();
+  }
+
+  if (service === "niconico") {
+    return title.replace(/\s*-\s*ニコニコ\s*$/i, "").trim();
+  }
+
+  return title.trim();
+};
+
 const getHandle = (profileUrl) => {
   const url = new URL(profileUrl);
   const firstPathPart = url.pathname.split("/").filter(Boolean)[0] || "";
@@ -97,15 +120,48 @@ const getHandle = (profileUrl) => {
   return firstPathPart.replace(/^@/, "");
 };
 
-const getUnavatarUrl = (service, profileUrl) => {
-  if (service === "niconico") return "";
+const getUnavatarUrls = (service, profileUrl) => {
+  if (service === "niconico") return [];
 
-  const provider = serviceToUnavatar[service];
+  const providers = serviceToUnavatarProviders[service];
   const handle = getHandle(profileUrl);
 
-  if (!provider || !handle) return "";
+  if (!providers || !handle) return [];
 
-  return `https://unavatar.io/${provider}/${encodeURIComponent(handle)}`;
+  return [providers]
+    .flat()
+    .map(
+      (provider) =>
+        `https://unavatar.io/${provider}/${encodeURIComponent(handle)}`,
+    );
+};
+
+const isFetchableImage = async (imageUrl) => {
+  try {
+    const response = await fetch(imageUrl, {
+      headers: {
+        Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "User-Agent":
+          "Mozilla/5.0 (compatible; EventNameCardImageProbe/1.0; +https://workers.cloudflare.com/)",
+      },
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+
+    return response.ok && contentType.startsWith("image/");
+  } catch {
+    return false;
+  }
+};
+
+const getFirstFetchableImageUrl = async (imageUrls) => {
+  for (const imageUrl of imageUrls.filter(Boolean)) {
+    if (await isFetchableImage(imageUrl)) {
+      return imageUrl;
+    }
+  }
+
+  return "";
 };
 
 const proxyImage = async (requestUrl) => {
@@ -190,13 +246,12 @@ export default {
 
     const html = await response.text();
     const ogImage = extractMeta(html, "og:image");
-    const rawIconUrl = service === "niconico"
-      ? ogImage
-      : getUnavatarUrl(service, profileUrl);
-    const name = extractTitle(html)
-      .replace(/\s*[-|｜]\s*X\s*$/i, "")
-      .replace(/\s*-\s*YouTube\s*$/i, "")
-      .trim();
+    const iconCandidates =
+      service === "niconico"
+        ? [ogImage]
+        : [...getUnavatarUrls(service, profileUrl), ogImage];
+    const rawIconUrl = await getFirstFetchableImageUrl(iconCandidates);
+    const name = cleanProfileName(extractTitle(html), service);
 
     return json({
       name,
