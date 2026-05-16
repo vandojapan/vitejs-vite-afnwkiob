@@ -67,11 +67,11 @@ function App() {
   const selectedPaper = PAPER_SIZES[paperSize];
   const isBorderlessPaper = paperSize === "photo" || paperSize === "postcard";
 
-  const insetRect = (rect, inset) => ({
-    x: rect.x + inset,
-    y: rect.y + inset,
-    width: rect.width - inset * 2,
-    height: rect.height - inset * 2,
+  const outsetRect = (rect, outset) => ({
+    x: rect.x - outset,
+    y: rect.y - outset,
+    width: rect.width + outset * 2,
+    height: rect.height + outset * 2,
   });
 
   const getContrastTextColor = (hex) => {
@@ -294,6 +294,7 @@ function App() {
     const { x, y, width, height } = rect;
     const {
       backgroundPosition = "top",
+      backgroundRect = rect,
       rotateContent = false,
       trimMarks = true,
       trimRect = rect,
@@ -304,7 +305,7 @@ function App() {
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(x, y, width, height);
 
-    drawColorBackground(ctx, rect, backgroundPosition);
+    drawColorBackground(ctx, backgroundRect, backgroundPosition);
 
     if (rotateContent) {
       ctx.save();
@@ -420,13 +421,14 @@ function App() {
 
     for (const index of faces) {
       const rect = getCardRect(selectedPaper, index);
-      const contentRect =
-        paperSize === "card" ? insetRect(rect, CARD_MARGIN_PX) : rect;
+      const backgroundRect =
+        paperSize === "card" ? outsetRect(rect, CARD_MARGIN_PX) : rect;
       const backgroundPosition =
         isBorderlessPaper && panelCount === 2 && index === 0 ? "bottom" : "top";
       const trimMarks = showTrimMarks && !isBorderlessPaper;
 
-      await drawCardFace(ctx, contentRect, {
+      await drawCardFace(ctx, rect, {
+        backgroundRect,
         backgroundPosition,
         rotateContent: panelCount === 2 && index === 0,
         trimMarks,
