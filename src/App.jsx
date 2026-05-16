@@ -34,15 +34,15 @@ const PAPER_SIZES = {
 };
 
 const FONT_FAMILIES = [
-  { id: "default", label: "デフォルト", css: "sans-serif" },
-  { id: "DotGothic16", label: "DotGothic16", css: "'DotGothic16', sans-serif" },
-  { id: "IBM Plex Sans", label: "IBM Plex Sans", css: "'IBM Plex Sans', sans-serif" },
-  { id: "RocknRoll One", label: "RocknRoll One", css: "'RocknRoll One', sans-serif" },
-  { id: "Kaisei Decol", label: "Kaisei Decol", css: "'Kaisei Decol', sans-serif" },
-  { id: "Kaisei HarunoUmi", label: "Kaisei HarunoUmi", css: "'Kaisei HarunoUmi', sans-serif" },
-  { id: "Kaisei Opti", label: "Kaisei Opti", css: "'Kaisei Opti', sans-serif" },
-  { id: "Kosugi Maru", label: "Kosugi Maru", css: "'Kosugi Maru', sans-serif" },
-  { id: "Kosugi", label: "Kosugi", css: "'Kosugi', sans-serif" },
+  { id: "default", label: "デフォルト", css: "sans-serif", supports700: false },
+  { id: "DotGothic16", label: "DotGothic16", css: "'DotGothic16', sans-serif", supports700: false },
+  { id: "IBM Plex Sans", label: "IBM Plex Sans", css: "'IBM Plex Sans', sans-serif", supports700: true },
+  { id: "RocknRoll One", label: "RocknRoll One", css: "'RocknRoll One', sans-serif", supports700: false },
+  { id: "Kaisei Decol", label: "Kaisei Decol", css: "'Kaisei Decol', sans-serif", supports700: true },
+  { id: "Kaisei HarunoUmi", label: "Kaisei HarunoUmi", css: "'Kaisei HarunoUmi', sans-serif", supports700: true },
+  { id: "Kaisei Opti", label: "Kaisei Opti", css: "'Kaisei Opti', sans-serif", supports700: true },
+  { id: "Kosugi Maru", label: "Kosugi Maru", css: "'Kosugi Maru', sans-serif", supports700: false },
+  { id: "Kosugi", label: "Kosugi", css: "'Kosugi', sans-serif", supports700: false },
 ];
 
 const PROFILE_SERVICES = [
@@ -499,10 +499,15 @@ function App() {
     }
 
     const normalized = normalizeFontFamily(cssFontFamily);
+    const selectedFont = FONT_FAMILIES.find((font) => font.css === cssFontFamily);
+    const requests = [document.fonts.load(`400 1em "${normalized}"`)];
+
+    if (selectedFont?.supports700) {
+      requests.push(document.fonts.load(`700 1em "${normalized}"`));
+    }
+
     try {
-      await Promise.allSettled([
-        document.fonts.load(`400 1em "${normalized}"`),
-      ]);
+      await Promise.allSettled(requests);
       await document.fonts.ready;
     } catch {
       // ignore font loading failures and render with fallback
@@ -607,7 +612,8 @@ function App() {
       ctx.translate(-(x + width / 2), -(y + height / 2));
     }
 
-    const fontWeight = fontFamily === "sans-serif" ? "bold" : "normal";
+    const selectedFont = FONT_FAMILIES.find((font) => font.css === fontFamily);
+    const fontWeight = selectedFont?.supports700 ? "bold" : "normal";
 
     if (iconImage) {
       const isSinglePanel = panelCount === 1;
