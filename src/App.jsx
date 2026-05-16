@@ -508,6 +508,19 @@ function App() {
     }
   };
 
+  const isFontAvailable = (cssFontFamily) => {
+    if (typeof document === "undefined" || !document.fonts || !document.fonts.check) {
+      return false;
+    }
+
+    const normalized = normalizeFontFamily(cssFontFamily);
+    if (!normalized || normalized.toLowerCase() === "sans-serif") {
+      return false;
+    }
+
+    return document.fonts.check(`1em "${normalized}"`);
+  };
+
   const wrapText = (ctx, text, maxWidth, maxLines) => {
     const words = text.trim().split(/\s+/);
     const lines = [];
@@ -593,6 +606,8 @@ function App() {
       ctx.translate(-(x + width / 2), -(y + height / 2));
     }
 
+    const fontWeight = isFontAvailable(fontFamily) ? "normal" : "bold";
+
     if (iconImage) {
       const isSinglePanel = panelCount === 1;
       const imageSize = Math.min(
@@ -629,7 +644,7 @@ function App() {
       ctx.stroke();
 
       ctx.fillStyle = "#111111";
-      ctx.font = `normal ${Math.round(height * (isSinglePanel ? 0.095 : 0.115))}px ${fontFamily}`;
+      ctx.font = `${fontWeight} ${Math.round(height * (isSinglePanel ? 0.095 : 0.115))}px ${fontFamily}`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(
@@ -642,12 +657,12 @@ function App() {
       ctx.fillStyle = contrastTextColor;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = `normal ${Math.round(height * 0.16)}px ${fontFamily}`;
+      ctx.font = `${fontWeight} ${Math.round(height * 0.16)}px ${fontFamily}`;
       ctx.fillText(name || "名無し", centerX, y + height * 0.42 + nameYOffset, width * 0.82);
 
       if (subText.trim()) {
         ctx.fillStyle = "#000000";
-        ctx.font = `normal ${Math.round(height * 0.08)}px ${fontFamily}`;
+        ctx.font = `${fontWeight} ${Math.round(height * 0.08)}px ${fontFamily}`;
         const lineHeight = Math.round(height * 0.08 * 1.3);
         const maxWidth = width * 0.78;
         const lines = wrapText(ctx, subText, maxWidth, 2);
