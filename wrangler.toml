@@ -3,5 +3,4 @@ main = "cloudflare-worker.js"
 compatibility_date = "2026-05-15"
 
 [build]
-upload = { format = "service-worker" }
-account_id = "5a8802c2cddfd71671b49bd7a0a8c8fa"
+upload = { format = "modules" }

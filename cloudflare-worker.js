@@ -5,9 +5,11 @@ const CORS_HEADERS = {
 };
 const DEFAULT_TTL_SECONDS = 86400;
 
-addEventListener("fetch", (event) => {
-  event.respondWith(handleRequest(event.request));
-});
+export default {
+  async fetch(request) {
+    return handleRequest(request);
+  },
+};
 
 async function handleRequest(request) {
   if (request.method === "OPTIONS") {
