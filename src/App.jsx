@@ -84,6 +84,140 @@ function App() {
     return brightness > 186 ? "#000000" : "#ffffff";
   };
 
+  const rgbToHsl = (r, g, b) => {
+    const normalizedR = r / 255;
+    const normalizedG = g / 255;
+    const normalizedB = b / 255;
+    const max = Math.max(normalizedR, normalizedG, normalizedB);
+    const min = Math.min(normalizedR, normalizedG, normalizedB);
+    const lightness = (max + min) / 2;
+
+    if (max === min) {
+      return { hue: 0, saturation: 0, lightness };
+    }
+
+    const delta = max - min;
+    const saturation =
+      lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+    let hue;
+
+    if (max === normalizedR) {
+      hue = (normalizedG - normalizedB) / delta + (normalizedG < normalizedB ? 6 : 0);
+    } else if (max === normalizedG) {
+      hue = (normalizedB - normalizedR) / delta + 2;
+    } else {
+      hue = (normalizedR - normalizedG) / delta + 4;
+    }
+
+    return {
+      hue: hue * 60,
+      saturation,
+      lightness,
+    };
+  };
+
+  const rgbToHex = (r, g, b) =>
+    `#${[r, g, b]
+      .map((value) => value.toString(16).padStart(2, "0"))
+      .join("")}`;
+
+  const getColorFromIcon = (image) => {
+    const sampleSize = 64;
+    const sampleCanvas = document.createElement("canvas");
+    const sampleCtx = sampleCanvas.getContext("2d", { willReadFrequently: true });
+    const sourceSize = Math.min(image.width, image.height);
+    const sx = (image.width - sourceSize) / 2;
+    const sy = (image.height - sourceSize) / 2;
+    const colorBuckets = new Map();
+
+    sampleCanvas.width = sampleSize;
+    sampleCanvas.height = sampleSize;
+
+    sampleCtx.drawImage(
+      image,
+      sx,
+      sy,
+      sourceSize,
+      sourceSize,
+      0,
+      0,
+      sampleSize,
+      sampleSize,
+    );
+
+    try {
+      const { data } = sampleCtx.getImageData(0, 0, sampleSize, sampleSize);
+
+      for (let index = 0; index < data.length; index += 4) {
+        const alpha = data[index + 3];
+
+        if (alpha < 180) continue;
+
+        const r = data[index];
+        const g = data[index + 1];
+        const b = data[index + 2];
+        const { saturation, lightness } = rgbToHsl(r, g, b);
+
+        if (saturation < 0.18 || lightness < 0.18 || lightness > 0.88) {
+          continue;
+        }
+
+        const bucketR = Math.round(r / 24) * 24;
+        const bucketG = Math.round(g / 24) * 24;
+        const bucketB = Math.round(b / 24) * 24;
+        const key = `${bucketR},${bucketG},${bucketB}`;
+        const current = colorBuckets.get(key) || {
+          count: 0,
+          r: 0,
+          g: 0,
+          b: 0,
+          score: 0,
+        };
+
+        current.count += 1;
+        current.r += r;
+        current.g += g;
+        current.b += b;
+        current.score += saturation * (1 - Math.abs(lightness - 0.52));
+        colorBuckets.set(key, current);
+      }
+
+      const bestColor = [...colorBuckets.values()].sort(
+        (a, b) => b.count * b.score - a.count * a.score,
+      )[0];
+
+      if (!bestColor) {
+        return "";
+      }
+
+      return rgbToHex(
+        Math.round(bestColor.r / bestColor.count),
+        Math.round(bestColor.g / bestColor.count),
+        Math.round(bestColor.b / bestColor.count),
+      );
+    } catch {
+      return "";
+    }
+  };
+
+  const applyIconColor = () => {
+    if (!iconImage) {
+      setStatusMessage("先にアイコン画像を設定してください。");
+      return;
+    }
+
+    const nextColor = getColorFromIcon(iconImage);
+
+    if (nextColor) {
+      setBgColor(nextColor);
+      setStatusMessage(`アイコンから色を設定しました: ${nextColor}`);
+    } else {
+      setStatusMessage(
+        "アイコンから使いやすい色を見つけられませんでした。CORS制約がある場合はWorkerの画像プロキシ経由で取得してください。",
+      );
+    }
+  };
+
   const loadImage = (src) =>
     new Promise((resolve, reject) => {
       const image = new Image();
@@ -148,11 +282,18 @@ function App() {
       }
 
       let iconWarning = "";
+      let appliedIconColor = false;
 
       if (nextIconUrl) {
         try {
           const image = await loadImage(nextIconUrl);
+          const iconColor = getColorFromIcon(image);
           setIconImage(image);
+
+          if (iconColor) {
+            setBgColor(iconColor);
+            appliedIconColor = true;
+          }
         } catch (error) {
           iconWarning =
             error instanceof Error
@@ -165,7 +306,9 @@ function App() {
       setStatusMessage(
         iconWarning
           ? `名前は反映しました。${iconWarning}`
-          : "名前とアイコンを反映しました。",
+          : appliedIconColor
+            ? "名前とアイコンを反映し、アイコンから色を設定しました。"
+            : "名前とアイコンを反映しました。",
       );
     } catch (error) {
       const errorMessage =
@@ -637,14 +780,24 @@ function App() {
 
               <div className="field-group">
                 <span className="field-label">色設定</span>
-                <button
-                  className="color-chip"
-                  onClick={() => setShowColorPicker(!showColorPicker)}
-                  style={{ backgroundColor: bgColor }}
-                  type="button"
-                >
-                  {bgColor}
-                </button>
+                <div className="color-actions">
+                  <button
+                    className="color-chip"
+                    onClick={() => setShowColorPicker(!showColorPicker)}
+                    style={{ backgroundColor: bgColor }}
+                    type="button"
+                  >
+                    {bgColor}
+                  </button>
+                  <button
+                    className="utility-button"
+                    disabled={!iconImage}
+                    onClick={applyIconColor}
+                    type="button"
+                  >
+                    アイコンから自動
+                  </button>
+                </div>
               </div>
 
               {showColorPicker && (
