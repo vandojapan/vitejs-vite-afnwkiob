@@ -598,7 +598,7 @@ function App() {
     } = options;
     const contrastTextColor = getContrastTextColor(bgColor);
     const centerX = x + width / 2;
-    const nameYOffset = panelCount === 2 ? -60 : 0;
+    const nameYOffset = panelCount === 1 || panelCount === 2 ? -60 : 0;
 
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(x, y, width, height);
