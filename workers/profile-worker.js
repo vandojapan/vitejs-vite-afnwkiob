@@ -4,6 +4,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
+const defaultFetchHeaders = {
+  Accept:
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+};
+
 const serviceToUnavatarProviders = {
   x: ["x", "twitter"],
   instagram: "instagram",
@@ -141,8 +149,7 @@ const isFetchableImage = async (imageUrl) => {
     const response = await fetch(imageUrl, {
       headers: {
         Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-        "User-Agent":
-          "Mozilla/5.0 (compatible; EventNameCardImageProbe/1.0; +https://workers.cloudflare.com/)",
+        "User-Agent": defaultFetchHeaders["User-Agent"],
       },
     });
 
@@ -174,8 +181,7 @@ const proxyImage = async (requestUrl) => {
   const response = await fetch(imageUrl, {
     headers: {
       Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-      "User-Agent":
-        "Mozilla/5.0 (compatible; EventNameCardImageProxy/1.0; +https://workers.cloudflare.com/)",
+      "User-Agent": defaultFetchHeaders["User-Agent"],
     },
   });
 
@@ -234,10 +240,7 @@ export default {
     }
 
     const response = await fetch(parsedProfileUrl.toString(), {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; EventNameCardBot/1.0; +https://workers.cloudflare.com/)",
-      },
+      headers: defaultFetchHeaders,
     });
 
     if (!response.ok) {
