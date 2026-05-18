@@ -14,6 +14,7 @@ const defaultFetchHeaders = {
 
 const serviceToUnavatarProviders = {
   x: ["x", "twitter"],
+  github: "github",
   instagram: "instagram",
   youtube: "youtube",
   soundcloud: "soundcloud",
@@ -110,6 +111,17 @@ const cleanProfileName = (title, service) => {
     return title.replace(/\s*\|\s*Listen on SoundCloud\s*$/i, "").trim();
   }
 
+  if (service === "github") {
+    return title
+      .replace(/^GitHub\s*-\s*/i, "")
+      .replace(/\s*:\s*Overview\s*$/i, "")
+      .replace(/\s*[-|｜]\s*Overview\s*$/i, "")
+      .replace(/\s*\bOverview\b\s*$/i, "")
+      .replace(/\s*·\s*GitHub\s*$/i, "")
+      .replace(/\s*-\s*GitHub\s*$/i, "")
+      .trim();
+  }
+
   if (service === "niconico") {
     return title.replace(/\s*-\s*ニコニコ\s*$/i, "").trim();
   }
@@ -117,15 +129,85 @@ const cleanProfileName = (title, service) => {
   return title.trim();
 };
 
+const decodePathPart = (value) => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
 const getHandle = (profileUrl) => {
   const url = new URL(profileUrl);
   const firstPathPart = url.pathname.split("/").filter(Boolean)[0] || "";
 
   if (url.hostname.includes("youtube.com") && firstPathPart.startsWith("@")) {
-    return firstPathPart.slice(1);
+    return decodePathPart(firstPathPart.slice(1));
   }
 
-  return firstPathPart.replace(/^@/, "");
+  return decodePathPart(firstPathPart.replace(/^@/, ""));
+};
+
+const getProfileIdentifiers = (profileUrl, service) => {
+  const url = new URL(profileUrl);
+  const pathParts = url.pathname.split("/").filter(Boolean);
+  const firstPathPart = pathParts[0] || "";
+  const secondPathPart = pathParts[1] || "";
+  const handle = getHandle(profileUrl);
+  let screenName = handle ? `@${handle}` : "";
+  let profileId = handle;
+
+  if (service === "youtube") {
+    if (firstPathPart.startsWith("@")) {
+      profileId = firstPathPart.slice(1);
+    } else if (["channel", "user", "c"].includes(firstPathPart) && secondPathPart) {
+      screenName = firstPathPart === "channel" ? "" : `@${secondPathPart}`;
+      profileId = secondPathPart;
+    }
+  }
+
+  if (service === "niconico") {
+    if (firstPathPart === "user" && /^\d+$/.test(secondPathPart)) {
+      screenName = "";
+      profileId = secondPathPart;
+    } else if (firstPathPart === "users" && /^\d+$/.test(secondPathPart)) {
+      screenName = "";
+      profileId = secondPathPart;
+    } else {
+      profileId = handle;
+    }
+  }
+
+  if (service === "soundcloud") {
+    screenName = handle;
+    profileId = handle;
+  }
+
+  if (service === "github") {
+    screenName = handle ? `@${handle}` : "";
+    profileId = handle;
+  }
+
+  return {
+    screenName,
+    profileId,
+  };
+};
+
+const getProfileFetchUrl = (profileUrl, service) => {
+  const url = new URL(profileUrl);
+
+  if (service === "soundcloud" || service === "github") {
+    const firstPathPart = url.pathname.split("/").filter(Boolean)[0] || "";
+
+    if (firstPathPart) {
+      url.pathname = `/${firstPathPart}`;
+      url.search = "";
+      url.hash = "";
+    }
+  }
+
+  return url;
 };
 
 const getUnavatarUrls = (service, profileUrl) => {
@@ -239,7 +321,9 @@ export default {
       return json({ error: "url must be http or https" }, 400);
     }
 
-    const response = await fetch(parsedProfileUrl.toString(), {
+    const fetchProfileUrl = getProfileFetchUrl(parsedProfileUrl.toString(), service);
+
+    const response = await fetch(fetchProfileUrl.toString(), {
       headers: defaultFetchHeaders,
     });
 
@@ -252,16 +336,18 @@ export default {
     const iconCandidates =
       service === "niconico"
         ? [ogImage]
-        : [...getUnavatarUrls(service, profileUrl), ogImage];
+        : [...getUnavatarUrls(service, fetchProfileUrl.toString()), ogImage];
     const rawIconUrl = await getFirstFetchableImageUrl(iconCandidates);
     const name = cleanProfileName(extractTitle(html), service);
+    const identifiers = getProfileIdentifiers(fetchProfileUrl.toString(), service);
 
     return json({
       name,
+      ...identifiers,
       iconUrl: getProxyImageUrl(requestUrl, rawIconUrl),
       rawIconUrl,
       ogImage,
-      sourceUrl: parsedProfileUrl.toString(),
+      sourceUrl: fetchProfileUrl.toString(),
     });
   },
 };

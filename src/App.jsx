@@ -47,11 +47,71 @@ const FONT_FAMILIES = [
 
 const PROFILE_SERVICES = [
   { id: "x", label: "X" },
-  { id: "instagram", label: "Instagram" },
+  { id: "github", label: "GitHub" },
   { id: "youtube", label: "YouTube" },
   { id: "soundcloud", label: "SoundCloud" },
   { id: "niconico", label: "ニコニコ動画" },
 ];
+
+const formatProfileSubText = (profile, service) => {
+  if (service === "github") {
+    return "";
+  }
+
+  const candidates = [
+    profile.screenName,
+    profile.handle,
+    profile.username,
+  ].filter(Boolean);
+
+  const screenName = candidates.find((value) => value.startsWith("@"));
+
+  if (screenName) {
+    return screenName;
+  }
+
+  if (service === "niconico" && /^\d+$/.test(profile.profileId || "")) {
+    return profile.profileId;
+  }
+
+  if (service === "soundcloud") {
+    return profile.profileId || profile.handle || "";
+  }
+
+  return "";
+};
+
+const normalizeFontFamily = (cssFontFamily) => {
+  const family = cssFontFamily.split(",")[0].trim();
+  return family.replace(/^['"]+|['"]+$/g, "");
+};
+
+const ensureFontLoaded = async (cssFontFamily, sampleText = "名無しサブテキスト") => {
+  if (typeof document === "undefined" || !document.fonts || !document.fonts.load) {
+    return;
+  }
+
+  const normalized = normalizeFontFamily(cssFontFamily);
+  const sample = sampleText.trim() || "名無しサブテキスト";
+
+  if (!normalized || normalized.toLowerCase() === "sans-serif") {
+    return;
+  }
+
+  const selectedFont = FONT_FAMILIES.find((font) => font.css === cssFontFamily);
+  const requests = [document.fonts.load(`400 1em "${normalized}"`, sample)];
+
+  if (selectedFont?.supports700) {
+    requests.push(document.fonts.load(`700 1em "${normalized}"`, sample));
+  }
+
+  try {
+    await Promise.all(requests);
+    await document.fonts.ready;
+  } catch {
+    // ignore font loading failures and render with fallback
+  }
+};
 
 function App() {
   const canvasRef = useRef(null);
@@ -296,9 +356,14 @@ function App() {
       const nextName = profile.name || profile.title || profile.displayName;
       const nextIconUrl =
         profile.iconUrl || profile.avatarUrl || profile.image || profile.icon;
+      const nextSubText = formatProfileSubText(profile, profileService);
 
       if (nextName) {
         setName(nextName);
+      }
+
+      if (nextSubText) {
+        setSubText(nextSubText);
       }
 
       let iconWarning = "";
@@ -322,13 +387,13 @@ function App() {
         }
       }
 
-      setQrUrl((current) => current || trimmedUrl);
+      setQrUrl((current) => current || profile.sourceUrl || trimmedUrl);
       setStatusMessage(
         iconWarning
-          ? `名前は反映しました。${iconWarning}`
+          ? `名前とプロフィール情報を反映しました。${iconWarning}`
           : appliedIconColor
-            ? "名前とアイコンを反映し、アイコンから色を設定しました。"
-            : "名前とアイコンを反映しました。",
+            ? "名前、プロフィール情報、アイコンを反映し、アイコンから色を設定しました。"
+            : "名前、プロフィール情報、アイコンを反映しました。",
       );
     } catch (error) {
       const errorMessage =
@@ -488,52 +553,13 @@ function App() {
     ctx.fill();
   };
 
-  const normalizeFontFamily = (cssFontFamily) => {
-    const family = cssFontFamily.split(",")[0].trim();
-    return family.replace(/^['"]+|['"]+$/g, "");
-  };
-
-  const ensureFontLoaded = async (cssFontFamily) => {
-    if (typeof document === "undefined" || !document.fonts || !document.fonts.load) {
-      return;
-    }
-
-    const normalized = normalizeFontFamily(cssFontFamily);
-    const selectedFont = FONT_FAMILIES.find((font) => font.css === cssFontFamily);
-    const requests = [document.fonts.load(`400 1em "${normalized}"`)];
-
-    if (selectedFont?.supports700) {
-      requests.push(document.fonts.load(`700 1em "${normalized}"`));
-    }
-
-    try {
-      await Promise.allSettled(requests);
-      await document.fonts.ready;
-    } catch {
-      // ignore font loading failures and render with fallback
-    }
-  };
-
-  const isFontAvailable = (cssFontFamily) => {
-    if (typeof document === "undefined" || !document.fonts || !document.fonts.check) {
-      return false;
-    }
-
-    const normalized = normalizeFontFamily(cssFontFamily);
-    if (!normalized || normalized.toLowerCase() === "sans-serif") {
-      return false;
-    }
-
-    return document.fonts.check(`1em "${normalized}"`);
-  };
-
-  const wrapText = (ctx, text, maxWidth, maxLines) => {
+  const wrapText = (ctx, text, maxWidth) => {
     const words = text.trim().split(/\s+/);
     const lines = [];
     let currentLine = "";
 
     const pushLine = (line) => {
-      if (lines.length < maxLines) {
+      if (line) {
         lines.push(line);
       }
     };
@@ -552,38 +578,76 @@ function App() {
           if (ctx.measureText(next).width > maxWidth) {
             pushLine(partial);
             partial = char;
-            if (lines.length >= maxLines) break;
           } else {
             partial = next;
           }
         }
-        if (lines.length < maxLines && partial) {
+        if (partial) {
           currentLine = partial;
         }
       } else {
         pushLine(currentLine);
         currentLine = word;
-        if (lines.length >= maxLines - 1) break;
       }
     }
 
-    if (currentLine && lines.length < maxLines) {
+    if (currentLine) {
       pushLine(currentLine);
     }
 
-    if (lines.length > maxLines) {
-      lines.length = maxLines;
+    return lines;
+  };
+
+  const drawSubText = (ctx, text, centerX, baseY, options) => {
+    const displayText = text.trim().slice(0, 40);
+
+    if (!displayText) return;
+
+    const {
+      color = "#000000",
+      fontSize,
+      fontWeight,
+      maxLines,
+      maxWidth,
+    } = options;
+    const minFontSize = Math.max(10, fontSize * 0.55);
+    let adjustedFontSize = fontSize;
+
+    const setSubTextFont = () => {
+      ctx.font = `${fontWeight} ${Math.round(adjustedFontSize)}px ${fontFamily}`;
+    };
+
+    const getLines = () => {
+      if (maxLines === 1) {
+        return [displayText];
+      }
+
+      return wrapText(ctx, displayText, maxWidth);
+    };
+
+    setSubTextFont();
+    let lines = getLines();
+
+    while (
+      adjustedFontSize > minFontSize
+      && (
+        lines.length > maxLines
+        || lines.some((line) => ctx.measureText(line).width > maxWidth)
+      )
+    ) {
+      adjustedFontSize -= 1;
+      setSubTextFont();
+      lines = getLines();
     }
 
-    return lines.map((line, index) => {
-      if (index === lines.length - 1 && lines.length === maxLines && ctx.measureText(line).width > maxWidth) {
-        let truncated = line;
-        while (truncated.length > 0 && ctx.measureText(`${truncated}…`).width > maxWidth) {
-          truncated = truncated.slice(0, -1);
-        }
-        return `${truncated}…`;
-      }
-      return line;
+    const lineHeight = Math.round(adjustedFontSize * 1.3);
+    const firstLineY = baseY - (lineHeight * (lines.length - 1)) / 2;
+
+    ctx.fillStyle = color;
+    setSubTextFont();
+
+    lines.forEach((line, index) => {
+      ctx.fillText(line, centerX, firstLineY + index * lineHeight);
     });
   };
 
@@ -660,25 +724,30 @@ function App() {
         y + height * (isSinglePanel ? 0.78 : 0.8) + nameYOffset,
         width * 0.82,
       );
+
+      drawSubText(ctx, subText, centerX, y + height * (isSinglePanel ? 0.9 : 0.92) + nameYOffset, {
+        color: "#334155",
+        fontSize: height * (isSinglePanel ? 0.045 : 0.055),
+        fontWeight,
+        maxLines: isSinglePanel ? 1 : 2,
+        maxWidth: width * (isSinglePanel ? 0.86 : 0.76),
+      });
     } else {
+      const isSinglePanel = panelCount === 1;
+
       ctx.fillStyle = contrastTextColor;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.font = `${fontWeight} ${Math.round(height * 0.16)}px ${fontFamily}`;
       ctx.fillText(name || "名無し", centerX, y + height * 0.42 + nameYOffset, width * 0.82);
 
-      if (subText.trim()) {
-        ctx.fillStyle = "#000000";
-        ctx.font = `${fontWeight} ${Math.round(height * 0.08)}px ${fontFamily}`;
-        const lineHeight = Math.round(height * 0.08 * 1.3);
-        const maxWidth = width * 0.78;
-        const lines = wrapText(ctx, subText, maxWidth, 2);
-        const baseY = y + height * (5 / 6) + nameYOffset - (lineHeight * (lines.length - 1)) / 2;
-
-        lines.forEach((line, index) => {
-          ctx.fillText(line, centerX, baseY + index * lineHeight, maxWidth);
-        });
-      }
+      drawSubText(ctx, subText, centerX, y + height * (5 / 6) + nameYOffset, {
+        color: "#000000",
+        fontSize: height * 0.08,
+        fontWeight,
+        maxLines: isSinglePanel ? 1 : 2,
+        maxWidth: width * (isSinglePanel ? 0.88 : 0.78),
+      });
     }
 
     await drawQrCode(
@@ -708,7 +777,7 @@ function App() {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 
-    await ensureFontLoaded(fontFamily);
+    await ensureFontLoaded(fontFamily, `${name || "名無し"} ${subText}`);
 
     canvas.width = selectedPaper.width;
     canvas.height = selectedPaper.height;
@@ -830,7 +899,7 @@ function App() {
   };
 
   return (
-    <main className="app-shell" style={{ fontFamily }}>
+    <main className="app-shell">
       <section className="workspace">
         <div className="control-pane">
           <header className="app-header">
@@ -884,27 +953,14 @@ function App() {
               </div>
             </div>
 
-            <fieldset className="field-group radio-group">
-              <legend className="field-label">トリムマーク</legend>
-              <label className="radio-option">
-                <input
-                  checked={showTrimMarks}
-                  name="trim-marks"
-                  onChange={() => setShowTrimMarks(true)}
-                  type="radio"
-                />
-                あり
-              </label>
-              <label className="radio-option">
-                <input
-                  checked={!showTrimMarks}
-                  name="trim-marks"
-                  onChange={() => setShowTrimMarks(false)}
-                  type="radio"
-                />
-                なし
-              </label>
-            </fieldset>
+            <label className="field-group checkbox-field">
+              <input
+                checked={showTrimMarks}
+                onChange={(event) => setShowTrimMarks(event.target.checked)}
+                type="checkbox"
+              />
+              <span>トリムマークを表示</span>
+            </label>
 
             <label className="field-group">
               <span className="field-label">QRコード用URL</span>
@@ -989,17 +1045,15 @@ function App() {
                 />
               </label>
 
-              {!iconImage && (
-                <label className="field-group">
-                  <span className="field-label">サブテキスト</span>
-                  <input
-                    onChange={(event) => setSubText(event.target.value)}
-                    placeholder="サブテキスト"
-                    type="text"
-                    value={subText}
-                  />
-                </label>
-              )}
+              <label className="field-group">
+                <span className="field-label">サブテキスト</span>
+                <input
+                  onChange={(event) => setSubText(event.target.value)}
+                  placeholder="サブテキスト"
+                  type="text"
+                  value={subText}
+                />
+              </label>
 
               <label className="field-group">
                 <span className="field-label">フォント</span>
