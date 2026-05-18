@@ -53,15 +53,44 @@ const PROFILE_SERVICES = [
   { id: "niconico", label: "ニコニコ動画" },
 ];
 
+const ONBOARDING_STORAGE_KEY = "event-namecard-onboarding-seen";
+
+const ONBOARDING_SLIDES = [
+  {
+    title: "プロフィールから作成",
+    text: "URLを入れると、名前やアイコンを反映できます。",
+    image: "/card.png",
+  },
+  {
+    title: "見た目を調整",
+    text: "画像、色、フォント、サブテキストを整えられます。",
+    image: "/card.png",
+  },
+  {
+    title: "PNGで保存",
+    text: "生成した名札は保存や共有に使えます。",
+    image: "/card.png",
+  },
+];
+
 const formatProfileSubText = (profile, service) => {
   if (service === "github") {
     return "";
+  }
+
+  if (service === "niconico") {
+    return /^\d+$/.test(profile.profileId || "") ? profile.profileId : "";
+  }
+
+  if (service === "soundcloud") {
+    return profile.profileId || profile.handle || getProfileHandle(profile);
   }
 
   const candidates = [
     profile.screenName,
     profile.handle,
     profile.username,
+    getProfileHandle(profile) ? `@${getProfileHandle(profile)}` : "",
   ].filter(Boolean);
 
   const screenName = candidates.find((value) => value.startsWith("@"));
@@ -70,15 +99,54 @@ const formatProfileSubText = (profile, service) => {
     return screenName;
   }
 
-  if (service === "niconico" && /^\d+$/.test(profile.profileId || "")) {
-    return profile.profileId;
-  }
-
-  if (service === "soundcloud") {
-    return profile.profileId || profile.handle || "";
-  }
-
   return "";
+};
+
+const getProfileHandle = (profile) => {
+  const handle =
+    profile.profileId
+    || profile.handle
+    || profile.username
+    || profile.screenName
+    || "";
+
+  if (handle) {
+    return handle.replace(/^@/, "");
+  }
+
+  if (!profile.sourceUrl) {
+    return "";
+  }
+
+  try {
+    const url = new URL(profile.sourceUrl);
+    const firstPathPart = url.pathname.split("/").filter(Boolean)[0] || "";
+
+    return decodeURIComponent(firstPathPart.replace(/^@/, ""));
+  } catch {
+    return "";
+  }
+};
+
+const getFallbackProfileName = (profile, service) => {
+  if (service !== "x") {
+    return "";
+  }
+
+  return getProfileHandle(profile);
+};
+
+const getFallbackIconUrls = (profile, service) => {
+  const handle = getProfileHandle(profile);
+
+  if (service !== "x" || !handle) {
+    return [];
+  }
+
+  return [
+    `https://unavatar.io/x/${encodeURIComponent(handle)}`,
+    `https://unavatar.io/twitter/${encodeURIComponent(handle)}`,
+  ];
 };
 
 const normalizeFontFamily = (cssFontFamily) => {
@@ -142,6 +210,14 @@ function App() {
     aspect: 1,
   });
   const [isFetchingProfile, setIsFetchingProfile] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    try {
+      return localStorage.getItem(ONBOARDING_STORAGE_KEY) !== "true";
+    } catch {
+      return true;
+    }
+  });
+  const [onboardingSlide, setOnboardingSlide] = useState(0);
   const [statusMessage, setStatusMessage] = useState("");
 
   const selectedPaper = PAPER_SIZES[paperSize];
@@ -353,9 +429,18 @@ function App() {
       }
 
       const profile = JSON.parse(responseText);
-      const nextName = profile.name || profile.title || profile.displayName;
-      const nextIconUrl =
-        profile.iconUrl || profile.avatarUrl || profile.image || profile.icon;
+      const nextName =
+        profile.name
+        || profile.title
+        || profile.displayName
+        || getFallbackProfileName(profile, profileService);
+      const iconCandidates = [
+        profile.iconUrl,
+        profile.avatarUrl,
+        profile.image,
+        profile.icon,
+        ...getFallbackIconUrls(profile, profileService),
+      ].filter(Boolean);
       const nextSubText = formatProfileSubText(profile, profileService);
 
       if (nextName) {
@@ -369,9 +454,9 @@ function App() {
       let iconWarning = "";
       let appliedIconColor = false;
 
-      if (nextIconUrl) {
+      for (const iconUrl of iconCandidates) {
         try {
-          const image = await loadImage(nextIconUrl);
+          const image = await loadImage(iconUrl);
           const iconColor = getColorFromIcon(image);
           setIconImage(image);
 
@@ -379,6 +464,9 @@ function App() {
             setBgColor(iconColor);
             appliedIconColor = true;
           }
+
+          iconWarning = "";
+          break;
         } catch (error) {
           iconWarning =
             error instanceof Error
@@ -898,13 +986,44 @@ function App() {
     reader.readAsDataURL(file);
   };
 
+  const closeOnboarding = () => {
+    try {
+      localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
+    } catch {
+      // ignore storage failures
+    }
+
+    setShowOnboarding(false);
+  };
+
+  const openOnboarding = () => {
+    setOnboardingSlide(0);
+    setShowOnboarding(true);
+  };
+
   return (
     <main className="app-shell">
       <section className="workspace">
         <div className="control-pane">
           <header className="app-header">
-            <p className="eyebrow">Event name card</p>
-            <h1>イベント名札ジェネレーター</h1>
+            <div>
+              <p className="eyebrow">Event name card</p>
+              <h1>イベント名札ジェネレーター</h1>
+            </div>
+            <button
+              aria-label="初回ガイドを表示"
+              className="help-button"
+              onClick={openOnboarding}
+              type="button"
+            >
+              <svg
+                aria-hidden="true"
+                focusable="false"
+                viewBox="0 0 512 512"
+              >
+                <path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM169.8 165.3c7.9-22.3 29.1-37.3 52.8-37.3h58.3c34.9 0 63.1 28.3 63.1 63.1c0 22.6-12.1 43.5-31.7 54.8L280 264.4c-.2 13-10.9 23.6-24 23.6c-13.3 0-24-10.7-24-24v-13.5c0-8.6 4.6-16.5 12.1-20.8l44.3-25.4c4.7-2.7 7.6-7.7 7.6-13.1c0-8.4-6.8-15.1-15.1-15.1h-58.3c-3.4 0-6.4 2.1-7.5 5.3l-.4 1.2c-4.4 12.5-18.2 19-30.6 14.6s-19-18.2-14.6-30.6l.4-1.2zM224 352a32 32 0 1 1 64 0a32 32 0 1 1 -64 0z" />
+              </svg>
+            </button>
           </header>
 
           <section className="panel">
@@ -953,14 +1072,16 @@ function App() {
               </div>
             </div>
 
-            <label className="field-group checkbox-field">
-              <input
-                checked={showTrimMarks}
-                onChange={(event) => setShowTrimMarks(event.target.checked)}
-                type="checkbox"
-              />
-              <span>トリムマークを表示</span>
-            </label>
+            {useCardStyle && (
+              <label className="field-group checkbox-field trim-mark-field">
+                <input
+                  checked={showTrimMarks}
+                  onChange={(event) => setShowTrimMarks(event.target.checked)}
+                  type="checkbox"
+                />
+                <span>トリムマークを表示</span>
+              </label>
+            )}
 
             <label className="field-group">
               <span className="field-label">QRコード用URL</span>
@@ -1148,6 +1269,65 @@ function App() {
               OK
             </button>
           </div>
+        </div>
+      )}
+
+      {showOnboarding && (
+        <div className="modal-backdrop">
+          <section
+            aria-label="初回ガイド"
+            className="onboarding-modal"
+          >
+            <div
+              className="onboarding-track"
+              style={{ transform: `translateX(-${onboardingSlide * 100}%)` }}
+            >
+              {ONBOARDING_SLIDES.map((slide, index) => (
+                <article className="onboarding-slide" key={slide.title}>
+                  <div className="onboarding-image-frame">
+                    <img alt="" src={slide.image} />
+                  </div>
+
+                  <div className="onboarding-copy">
+                    <p className="onboarding-step">
+                      {index + 1} / {ONBOARDING_SLIDES.length}
+                    </p>
+                    <h2>{slide.title}</h2>
+                    <p>{slide.text}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <div className="onboarding-footer">
+              <div className="onboarding-dots" aria-hidden="true">
+                {ONBOARDING_SLIDES.map((slide, index) => (
+                  <span
+                    className={onboardingSlide === index ? "is-active" : ""}
+                    key={slide.title}
+                  />
+                ))}
+              </div>
+
+              {onboardingSlide < ONBOARDING_SLIDES.length - 1 ? (
+                <button
+                  className="app-button"
+                  onClick={() => setOnboardingSlide((current) => current + 1)}
+                  type="button"
+                >
+                  次へ
+                </button>
+              ) : (
+                <button
+                  className="app-button"
+                  onClick={closeOnboarding}
+                  type="button"
+                >
+                  閉じる
+                </button>
+              )}
+            </div>
+          </section>
         </div>
       )}
     </main>

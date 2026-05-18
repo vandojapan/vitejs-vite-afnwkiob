@@ -14,7 +14,6 @@ const defaultFetchHeaders = {
 
 const serviceToUnavatarProviders = {
   x: ["x", "twitter"],
-  github: "github",
   instagram: "instagram",
   youtube: "youtube",
   soundcloud: "soundcloud",
@@ -111,17 +110,6 @@ const cleanProfileName = (title, service) => {
     return title.replace(/\s*\|\s*Listen on SoundCloud\s*$/i, "").trim();
   }
 
-  if (service === "github") {
-    return title
-      .replace(/^GitHub\s*-\s*/i, "")
-      .replace(/\s*:\s*Overview\s*$/i, "")
-      .replace(/\s*[-|｜]\s*Overview\s*$/i, "")
-      .replace(/\s*\bOverview\b\s*$/i, "")
-      .replace(/\s*·\s*GitHub\s*$/i, "")
-      .replace(/\s*-\s*GitHub\s*$/i, "")
-      .trim();
-  }
-
   if (service === "niconico") {
     return title.replace(/\s*-\s*ニコニコ\s*$/i, "").trim();
   }
@@ -153,51 +141,64 @@ const getProfileIdentifiers = (profileUrl, service) => {
   const pathParts = url.pathname.split("/").filter(Boolean);
   const firstPathPart = pathParts[0] || "";
   const secondPathPart = pathParts[1] || "";
+  const decodedSecondPathPart = decodePathPart(secondPathPart);
   const handle = getHandle(profileUrl);
-  let screenName = handle ? `@${handle}` : "";
-  let profileId = handle;
+
+  if (service === "x") {
+    return {
+      screenName: handle ? `@${handle}` : "",
+      profileId: handle,
+    };
+  }
 
   if (service === "youtube") {
     if (firstPathPart.startsWith("@")) {
-      profileId = firstPathPart.slice(1);
-    } else if (["channel", "user", "c"].includes(firstPathPart) && secondPathPart) {
-      screenName = firstPathPart === "channel" ? "" : `@${secondPathPart}`;
-      profileId = secondPathPart;
+      return {
+        screenName: handle ? `@${handle}` : "",
+        profileId: handle,
+      };
     }
+
+    if (["channel", "user", "c"].includes(firstPathPart) && decodedSecondPathPart) {
+      return {
+        screenName: firstPathPart === "channel" ? "" : `@${decodedSecondPathPart}`,
+        profileId: decodedSecondPathPart,
+      };
+    }
+
+    return {
+      screenName: "",
+      profileId: handle,
+    };
   }
 
   if (service === "niconico") {
-    if (firstPathPart === "user" && /^\d+$/.test(secondPathPart)) {
-      screenName = "";
-      profileId = secondPathPart;
-    } else if (firstPathPart === "users" && /^\d+$/.test(secondPathPart)) {
-      screenName = "";
-      profileId = secondPathPart;
-    } else {
-      profileId = handle;
-    }
+    return {
+      screenName: "",
+      profileId:
+        ["user", "users"].includes(firstPathPart) && /^\d+$/.test(secondPathPart)
+          ? secondPathPart
+          : handle,
+    };
   }
 
   if (service === "soundcloud") {
-    screenName = handle;
-    profileId = handle;
-  }
-
-  if (service === "github") {
-    screenName = handle ? `@${handle}` : "";
-    profileId = handle;
+    return {
+      screenName: handle,
+      profileId: handle,
+    };
   }
 
   return {
-    screenName,
-    profileId,
+    screenName: "",
+    profileId: handle,
   };
 };
 
 const getProfileFetchUrl = (profileUrl, service) => {
   const url = new URL(profileUrl);
 
-  if (service === "soundcloud" || service === "github") {
+  if (service === "soundcloud") {
     const firstPathPart = url.pathname.split("/").filter(Boolean)[0] || "";
 
     if (firstPathPart) {
@@ -251,6 +252,47 @@ const getFirstFetchableImageUrl = async (imageUrls) => {
   }
 
   return "";
+};
+
+const getXProfile = async (profileUrl) => {
+  const handle = getHandle(profileUrl);
+
+  if (!handle) {
+    return { name: "", iconUrl: "" };
+  }
+
+  try {
+    const response = await fetch(
+      `https://syndication.twitter.com/srv/timeline-profile/screen-name/${encodeURIComponent(handle)}`,
+      { headers: defaultFetchHeaders },
+    );
+
+    if (!response.ok) {
+      return { name: "", iconUrl: "" };
+    }
+
+    const html = await response.text();
+    const nextData = html.match(
+      /<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i,
+    )?.[1];
+
+    if (!nextData) {
+      return { name: "", iconUrl: "" };
+    }
+
+    const data = JSON.parse(nextData);
+    const entries = data?.props?.pageProps?.timeline?.entries || [];
+    const user = entries
+      .map((entry) => entry?.content?.tweet?.user)
+      .find((candidate) => candidate?.screen_name?.toLowerCase() === handle.toLowerCase());
+
+    return {
+      name: user?.name || "",
+      iconUrl: user?.profile_image_url_https || "",
+    };
+  } catch {
+    return { name: "", iconUrl: "" };
+  }
 };
 
 const proxyImage = async (requestUrl) => {
@@ -333,12 +375,14 @@ export default {
 
     const html = await response.text();
     const ogImage = extractMeta(html, "og:image");
+    const xProfile =
+      service === "x" ? await getXProfile(fetchProfileUrl.toString()) : { name: "", iconUrl: "" };
     const iconCandidates =
       service === "niconico"
         ? [ogImage]
-        : [...getUnavatarUrls(service, fetchProfileUrl.toString()), ogImage];
+        : [xProfile.iconUrl, ...getUnavatarUrls(service, fetchProfileUrl.toString()), ogImage];
     const rawIconUrl = await getFirstFetchableImageUrl(iconCandidates);
-    const name = cleanProfileName(extractTitle(html), service);
+    const name = xProfile.name || cleanProfileName(extractTitle(html), service);
     const identifiers = getProfileIdentifiers(fetchProfileUrl.toString(), service);
 
     return json({
