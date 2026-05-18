@@ -288,7 +288,7 @@ const getXProfile = async (profileUrl) => {
 
     return {
       name: user?.name || "",
-      iconUrl: user?.profile_image_url_https || "",
+      iconUrl: "",
     };
   } catch {
     return { name: "", iconUrl: "" };

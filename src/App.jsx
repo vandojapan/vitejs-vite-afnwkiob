@@ -57,19 +57,19 @@ const ONBOARDING_STORAGE_KEY = "event-namecard-onboarding-seen";
 
 const ONBOARDING_SLIDES = [
   {
-    title: "プロフィールから作成",
-    text: "URLを入れると、名前やアイコンを反映できます。",
-    image: "/card.png",
+    title: "シンプルモード",
+    text: "URLを入れるだけで、自動で作成します。",
+    image: "/card1.png",
   },
   {
-    title: "見た目を調整",
-    text: "画像、色、フォント、サブテキストを整えられます。",
-    image: "/card.png",
+    title: "アドバンスモード",
+    text: "画像、色、フォント、サブテキストを自由にカスタマイズできます。",
+    image: "/card2.png",
   },
   {
-    title: "PNGで保存",
-    text: "生成した名札は保存や共有に使えます。",
-    image: "/card.png",
+    title: "ギャラリーに保存",
+    text: "生成した名札はそのまま印刷に使えます。コンビニプリントもOK。",
+    image: "/card3.png",
   },
 ];
 
