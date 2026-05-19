@@ -227,7 +227,9 @@ function App() {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [fontFamily, setFontFamily] = useState(FONT_FAMILIES[0].css);
   const [iconImage, setIconImage] = useState(null);
+  const [iconFileName, setIconFileName] = useState("");
   const [backgroundImage, setBackgroundImage] = useState(null);
+  const [backgroundFileName, setBackgroundFileName] = useState("");
   const [backgroundBlur, setBackgroundBlur] = useState(0);
 
   useEffect(() => {
@@ -1298,6 +1300,7 @@ function App() {
 
   const clearIconImage = () => {
     setIconImage(null);
+    setIconFileName("");
 
     if (iconInputRef.current) {
       iconInputRef.current.value = "";
@@ -1306,6 +1309,7 @@ function App() {
 
   const clearBackgroundImage = () => {
     setBackgroundImage(null);
+    setBackgroundFileName("");
 
     if (backgroundInputRef.current) {
       backgroundInputRef.current.value = "";
@@ -1316,6 +1320,8 @@ function App() {
     const file = event.target.files[0];
 
     if (!file) return;
+
+    setIconFileName(file.name);
 
     const reader = new FileReader();
 
@@ -1330,6 +1336,8 @@ function App() {
     const file = event.target.files[0];
 
     if (!file) return;
+
+    setBackgroundFileName(file.name);
 
     const reader = new FileReader();
 
@@ -1569,15 +1577,25 @@ function App() {
                 </select>
               </label>
 
-              <label className="field-group">
+              <div className="field-group">
                 <span className="field-label">アイコン画像</span>
                 <div className="file-input-row">
-                  <input
-                    accept="image/*"
-                    onChange={handleFileSelect}
-                    ref={iconInputRef}
-                    type="file"
-                  />
+                  <div className="file-picker-stack">
+                    <label className="file-select-button" htmlFor="icon-image-input">
+                      ファイルを選択
+                    </label>
+                    <input
+                      accept="image/*"
+                      className="file-picker-input"
+                      id="icon-image-input"
+                      onChange={handleFileSelect}
+                      ref={iconInputRef}
+                      type="file"
+                    />
+                    <span className="file-name">
+                      {iconFileName || "選択されていません"}
+                    </span>
+                  </div>
                   {iconImage && (
                     <button
                       aria-label="アイコン画像を削除"
@@ -1595,17 +1613,27 @@ function App() {
                     </button>
                   )}
                 </div>
-              </label>
+              </div>
 
-              <label className="field-group">
+              <div className="field-group">
                 <span className="field-label">背景画像</span>
                 <div className="file-input-row">
-                  <input
-                    accept="image/*"
-                    onChange={handleBackgroundFileSelect}
-                    ref={backgroundInputRef}
-                    type="file"
-                  />
+                  <div className="file-picker-stack">
+                    <label className="file-select-button" htmlFor="background-image-input">
+                      ファイルを選択
+                    </label>
+                    <input
+                      accept="image/*"
+                      className="file-picker-input"
+                      id="background-image-input"
+                      onChange={handleBackgroundFileSelect}
+                      ref={backgroundInputRef}
+                      type="file"
+                    />
+                    <span className="file-name">
+                      {backgroundFileName || "選択されていません"}
+                    </span>
+                  </div>
                   {backgroundImage && (
                     <button
                       aria-label="背景画像を削除"
@@ -1623,7 +1651,7 @@ function App() {
                     </button>
                   )}
                 </div>
-              </label>
+              </div>
 
               <div className="field-group">
                 <span className="field-label">背景画像ぼかし</span>
