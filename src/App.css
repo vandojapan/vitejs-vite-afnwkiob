@@ -101,6 +101,10 @@
   margin-top: 0;
 }
 
+.field-group.checkbox-field {
+  margin-top: 18px;
+}
+
 .field-label {
   color: #475569;
   font-size: 0.86rem;
@@ -160,6 +164,65 @@ input[type="file"] {
   border-radius: 8px;
 }
 
+.file-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.file-input-row input[type="file"] {
+  min-width: 0;
+}
+
+.clear-file-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-height: 40px;
+  color: #dc5f45;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.clear-file-button svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.clear-file-button:hover {
+  color: #ffffff;
+  background: #dc5f45;
+  border-color: #dc5f45;
+}
+
+.range-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 52px;
+  gap: 10px;
+  align-items: center;
+}
+
+.range-row input[type="range"] {
+  width: 100%;
+  accent-color: #1f6f8b;
+}
+
+.range-row input[type="range"]:disabled {
+  opacity: 0.5;
+}
+
+.range-row span {
+  color: #475569;
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-align: right;
+}
+
 .checkbox-field {
   display: flex;
   align-items: center;
@@ -213,6 +276,14 @@ input[type="file"] {
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.segmented button {
+  flex: 1;
 }
 
 .segmented button.is-active,
@@ -233,19 +304,114 @@ input[type="file"] {
 }
 
 .tabs {
+  position: relative;
   padding: 4px;
   background: #dfe6ee;
   border-radius: 8px;
 }
 
+.tab-indicator {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  z-index: 0;
+  width: calc((100% - 8px) / 2);
+  background: #1f6f8b;
+  border: 1px solid #1f6f8b;
+  border-radius: 8px;
+  transition: transform 220ms ease;
+}
+
+.tabs[data-active-tab="advanced"] .tab-indicator {
+  transform: translateX(100%);
+}
+
 .tabs button {
+  position: relative;
+  z-index: 1;
   flex: 1;
   border-color: transparent;
   background: transparent;
 }
 
+.tabs button.is-active {
+  background: transparent;
+  border-color: transparent;
+}
+
+.panel-count-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  min-height: 42px;
+  padding: 4px;
+  color: #334155;
+  background: #dfe6ee;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.panel-count-switch-indicator {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  z-index: 0;
+  width: calc((100% - 8px) / 2);
+  background: #1f6f8b;
+  border-radius: 999px;
+  box-shadow: 0 6px 14px rgba(31, 111, 139, 0.24);
+  transition: transform 220ms ease;
+}
+
+.panel-count-switch[data-panel-count="2"] .panel-count-switch-indicator {
+  transform: translateX(100%);
+}
+
+.panel-count-switch span:not(.panel-count-switch-indicator) {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  transition: color 180ms ease;
+}
+
+.panel-count-switch span.is-active {
+  color: #ffffff;
+}
+
 .tab-panel {
   min-height: 236px;
+  animation: tab-panel-enter 220ms ease-out both;
+}
+
+.tab-panel[data-direction="forward"] {
+  --tab-panel-offset: 16px;
+}
+
+.tab-panel[data-direction="backward"] {
+  --tab-panel-offset: -16px;
+}
+
+@keyframes tab-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateX(var(--tab-panel-offset, 12px));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .app-button {
@@ -275,6 +441,11 @@ input[type="file"] {
   opacity: 0.65;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.fetch-profile-button {
+  width: 100%;
+  margin-top: 18px;
 }
 
 .color-actions {
@@ -354,6 +525,38 @@ input[type="file"] {
   justify-content: center;
   padding: 20px;
   background: rgba(15, 23, 42, 0.72);
+}
+
+.modal-surface {
+  animation: modal-enter 220ms ease-out both;
+}
+
+.modal-backdrop.is-closing .modal-surface {
+  animation: modal-exit 180ms ease-in both;
+}
+
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-28px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modal-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(28px);
+  }
 }
 
 .onboarding-modal {

@@ -54,6 +54,7 @@ const PROFILE_SERVICES = [
 ];
 
 const ONBOARDING_STORAGE_KEY = "event-namecard-onboarding-seen";
+const MODAL_EXIT_MS = 180;
 
 const ONBOARDING_SLIDES = [
   {
@@ -183,8 +184,12 @@ const ensureFontLoaded = async (cssFontFamily, sampleText = "名無しサブテ�
 
 function App() {
   const canvasRef = useRef(null);
+  const cropImageRef = useRef(null);
+  const iconInputRef = useRef(null);
+  const backgroundInputRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState("simple");
+  const [previousTab, setPreviousTab] = useState("simple");
   const [paperSize, setPaperSize] = useState("photo");
   const [useCardStyle, setUseCardStyle] = useState(false);
   const [panelCount, setPanelCount] = useState(1);
@@ -198,15 +203,23 @@ function App() {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [fontFamily, setFontFamily] = useState(FONT_FAMILIES[0].css);
   const [iconImage, setIconImage] = useState(null);
+  const [backgroundImage, setBackgroundImage] = useState(null);
+  const [backgroundBlur, setBackgroundBlur] = useState(0);
 
   useEffect(() => {
     ensureFontLoaded(fontFamily);
   }, [fontFamily]);
   const [imageSrc, setImageSrc] = useState(null);
+  const [cropTarget, setCropTarget] = useState("icon");
+  const [cropAspect, setCropAspect] = useState(1);
   const [showCropModal, setShowCropModal] = useState(false);
+  const [isCropModalClosing, setIsCropModalClosing] = useState(false);
   const [crop, setCrop] = useState({
     unit: "%",
     width: 80,
+    height: 80,
+    x: 10,
+    y: 10,
     aspect: 1,
   });
   const [isFetchingProfile, setIsFetchingProfile] = useState(false);
@@ -217,6 +230,7 @@ function App() {
       return true;
     }
   });
+  const [isOnboardingClosing, setIsOnboardingClosing] = useState(false);
   const [onboardingSlide, setOnboardingSlide] = useState(0);
   const [statusMessage, setStatusMessage] = useState("");
 
@@ -238,6 +252,49 @@ function App() {
     const b = bigint & 255;
     const brightness = (r * 299 + g * 587 + b * 114) / 1000;
     return brightness > 186 ? "#000000" : "#ffffff";
+  };
+
+  const getContrastTextColorFromImage = (image) => {
+    const sampleSize = 32;
+    const sampleCanvas = document.createElement("canvas");
+    const sampleCtx = sampleCanvas.getContext("2d", { willReadFrequently: true });
+
+    if (!sampleCtx) {
+      return getContrastTextColor(bgColor);
+    }
+
+    sampleCanvas.width = sampleSize;
+    sampleCanvas.height = sampleSize;
+
+    try {
+      sampleCtx.drawImage(image, 0, 0, sampleSize, sampleSize);
+
+      const { data } = sampleCtx.getImageData(0, 0, sampleSize, sampleSize);
+      let weightedBrightness = 0;
+      let totalAlpha = 0;
+
+      for (let index = 0; index < data.length; index += 4) {
+        const alpha = data[index + 3] / 255;
+
+        if (alpha <= 0) continue;
+
+        const brightness =
+          data[index] * 0.299
+          + data[index + 1] * 0.587
+          + data[index + 2] * 0.114;
+
+        weightedBrightness += brightness * alpha;
+        totalAlpha += alpha;
+      }
+
+      if (totalAlpha === 0) {
+        return getContrastTextColor(bgColor);
+      }
+
+      return weightedBrightness / totalAlpha > 150 ? "#000000" : "#ffffff";
+    } catch {
+      return getContrastTextColor(bgColor);
+    }
   };
 
   const rgbToHsl = (r, g, b) => {
@@ -609,7 +666,7 @@ function App() {
     ctx.drawImage(qrCanvas, x, y, size, size);
   };
 
-  const drawColorBackground = (ctx, rect, position = "top") => {
+  const traceBackgroundShape = (ctx, rect, position = "top") => {
     const { x, y, width, height } = rect;
 
     ctx.beginPath();
@@ -637,8 +694,86 @@ function App() {
     }
 
     ctx.closePath();
+  };
+
+  const getCoverImageRect = (image, rect) => {
+    const imageAspect = image.width / image.height;
+    const rectAspect = rect.width / rect.height;
+    let sourceWidth = image.width;
+    let sourceHeight = image.height;
+    let sx = 0;
+    let sy = 0;
+
+    if (imageAspect > rectAspect) {
+      sourceWidth = image.height * rectAspect;
+      sx = (image.width - sourceWidth) / 2;
+    } else {
+      sourceHeight = image.width / rectAspect;
+      sy = (image.height - sourceHeight) / 2;
+    }
+
+    return {
+      sx,
+      sy,
+      sourceWidth,
+      sourceHeight,
+    };
+  };
+
+  const getBackgroundCropAspect = () => {
+    const rect = getCardRect(selectedPaper, 0);
+    const trimMarks = showTrimMarks && !isBorderlessPaper;
+    const backgroundRect = useCardStyle
+      ? outsetRect(rect, BLEED_PX)
+      : trimMarks
+      ? outsetRect(rect, BLEED_PX)
+      : rect;
+
+    return backgroundRect.width / backgroundRect.height;
+  };
+
+  const getCenteredCrop = (aspect) => {
+    const cropWidth = aspect >= 1 ? 80 : Math.max(20, Math.round(80 * aspect));
+    const cropHeight = aspect >= 1 ? Math.max(20, Math.round(80 / aspect)) : 80;
+
+    return {
+      unit: "%",
+      width: cropWidth,
+      height: cropHeight,
+      x: (100 - cropWidth) / 2,
+      y: (100 - cropHeight) / 2,
+      aspect,
+    };
+  };
+
+  const drawColorBackground = (ctx, rect, position = "top") => {
+    traceBackgroundShape(ctx, rect, position);
     ctx.fillStyle = bgColor;
     ctx.fill();
+  };
+
+  const drawBackgroundImage = (ctx, image, rect, position = "top") => {
+    const { x, y, width, height } = rect;
+    const { sx, sy, sourceWidth, sourceHeight } = getCoverImageRect(image, rect);
+    const blur = Number(backgroundBlur) || 0;
+    const blurOutset = blur * 2;
+
+    ctx.save();
+    traceBackgroundShape(ctx, rect, position);
+    ctx.clip();
+    ctx.filter = blur > 0 ? `blur(${blur}px)` : "none";
+    ctx.drawImage(
+      image,
+      sx,
+      sy,
+      sourceWidth,
+      sourceHeight,
+      x - blurOutset,
+      y - blurOutset,
+      width + blurOutset * 2,
+      height + blurOutset * 2,
+    );
+    ctx.restore();
   };
 
   const wrapText = (ctx, text, maxWidth) => {
@@ -748,14 +883,20 @@ function App() {
       trimMarks = true,
       trimRect = rect,
     } = options;
-    const contrastTextColor = getContrastTextColor(bgColor);
+    const contrastTextColor = backgroundImage
+      ? getContrastTextColorFromImage(backgroundImage)
+      : getContrastTextColor(bgColor);
     const centerX = x + width / 2;
     const nameYOffset = panelCount === 1 || panelCount === 2 ? -60 : 0;
 
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(x, y, width, height);
 
-    drawColorBackground(ctx, backgroundRect, backgroundPosition);
+    if (backgroundImage) {
+      drawBackgroundImage(ctx, backgroundImage, backgroundRect, backgroundPosition);
+    } else {
+      drawColorBackground(ctx, backgroundRect, backgroundPosition);
+    }
 
     if (rotateContent) {
       ctx.save();
@@ -861,6 +1002,89 @@ function App() {
     }
   };
 
+  const getCardFaceOptions = (rect, index) => {
+    const trimMarks = showTrimMarks && !isBorderlessPaper;
+    const backgroundRect = useCardStyle
+      ? outsetRect(rect, BLEED_PX)
+      : trimMarks
+      ? outsetRect(rect, BLEED_PX)
+      : rect;
+    const backgroundPosition = useCardStyle
+      ? "top"
+      : isBorderlessPaper && panelCount === 2 && index === 0
+      ? "bottom"
+      : "top";
+
+    return {
+      backgroundRect,
+      backgroundPosition,
+      trimMarks,
+      trimRect: rect,
+    };
+  };
+
+  const translateRect = (rect, dx, dy) => ({
+    x: rect.x + dx,
+    y: rect.y + dy,
+    width: rect.width,
+    height: rect.height,
+  });
+
+  const drawMirroredTwoPanelFaces = async (ctx) => {
+    const topRect = getCardRect(selectedPaper, 0);
+    const bottomRect = getCardRect(selectedPaper, 1);
+    const bottomOptions = getCardFaceOptions(bottomRect, 1);
+    const topOptions = getCardFaceOptions(topRect, 0);
+    const bottomCaptureRect = bottomOptions.backgroundRect;
+    const topCaptureRect = topOptions.backgroundRect;
+    const faceCanvas = document.createElement("canvas");
+    const faceCtx = faceCanvas.getContext("2d");
+
+    if (!faceCtx) {
+      await drawCardFace(ctx, topRect, {
+        ...topOptions,
+        rotateContent: true,
+      });
+      await drawCardFace(ctx, bottomRect, bottomOptions);
+      return;
+    }
+
+    faceCanvas.width = Math.ceil(bottomCaptureRect.width);
+    faceCanvas.height = Math.ceil(bottomCaptureRect.height);
+
+    await drawCardFace(
+      faceCtx,
+      translateRect(bottomRect, -bottomCaptureRect.x, -bottomCaptureRect.y),
+      {
+        backgroundRect: translateRect(
+          bottomOptions.backgroundRect,
+          -bottomCaptureRect.x,
+          -bottomCaptureRect.y,
+        ),
+        backgroundPosition: bottomOptions.backgroundPosition,
+        trimMarks: bottomOptions.trimMarks,
+        trimRect: translateRect(bottomOptions.trimRect, -bottomCaptureRect.x, -bottomCaptureRect.y),
+      },
+    );
+
+    ctx.drawImage(faceCanvas, bottomCaptureRect.x, bottomCaptureRect.y);
+
+    ctx.save();
+    ctx.translate(
+      topCaptureRect.x + topCaptureRect.width / 2,
+      topCaptureRect.y + topCaptureRect.height / 2,
+    );
+    ctx.rotate(Math.PI);
+    ctx.drawImage(
+      faceCanvas,
+      -topCaptureRect.width / 2,
+      -topCaptureRect.height / 2,
+      topCaptureRect.width,
+      topCaptureRect.height,
+    );
+    ctx.restore();
+  };
+
   const renderCard = async () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -884,24 +1108,20 @@ function App() {
       ctx.setLineDash([]);
     }
 
+    if (panelCount === 2 && !useCardStyle) {
+      await drawMirroredTwoPanelFaces(ctx);
+      return;
+    }
+
     const faces = panelCount === 2 ? [0, 1] : [0];
 
     for (const index of faces) {
       const rect = getCardRect(selectedPaper, index);
-      const trimMarks = showTrimMarks && !isBorderlessPaper;
-      const backgroundRect = useCardStyle ? outsetRect(rect, BLEED_PX) : trimMarks ? outsetRect(rect, BLEED_PX) : rect;
-      const backgroundPosition = useCardStyle
-        ? "top"
-        : isBorderlessPaper && panelCount === 2 && index === 0
-        ? "bottom"
-        : "top";
+      const faceOptions = getCardFaceOptions(rect, index);
 
       await drawCardFace(ctx, rect, {
-        backgroundRect,
-        backgroundPosition,
+        ...faceOptions,
         rotateContent: !useCardStyle && panelCount === 2 && index === 0,
-        trimMarks,
-        trimRect: rect,
       });
     }
   };
@@ -965,6 +1185,108 @@ function App() {
     setStatusMessage("このブラウザは画像共有に対応していません。PNG保存してください。");
   };
 
+  const openCropModal = (source, target) => {
+    const aspect = target === "background" ? getBackgroundCropAspect() : 1;
+
+    cropImageRef.current = null;
+    setCropTarget(target);
+    setCropAspect(aspect);
+    setCrop(getCenteredCrop(aspect));
+    setImageSrc(source);
+    setIsCropModalClosing(false);
+    setShowCropModal(true);
+  };
+
+  const closeCropModal = () => {
+    setIsCropModalClosing(true);
+    window.setTimeout(() => {
+      setShowCropModal(false);
+      setIsCropModalClosing(false);
+    }, MODAL_EXIT_MS);
+  };
+
+  const createCroppedImage = (sourceImage, percentCrop, aspect) =>
+    new Promise((resolve, reject) => {
+      const sourceWidth = sourceImage.naturalWidth;
+      const sourceHeight = sourceImage.naturalHeight;
+      const cropX = Math.min(100, Math.max(0, percentCrop.x || 0));
+      const cropY = Math.min(100, Math.max(0, percentCrop.y || 0));
+      const cropWidth = Math.min(100 - cropX, Math.max(1, percentCrop.width || 100));
+      const fallbackHeight = (cropWidth / aspect / sourceHeight) * sourceWidth;
+      const cropHeight = Math.min(
+        100 - cropY,
+        Math.max(1, percentCrop.height || fallbackHeight),
+      );
+      const sx = (cropX / 100) * sourceWidth;
+      const sy = (cropY / 100) * sourceHeight;
+      const sw = (cropWidth / 100) * sourceWidth;
+      const sh = (cropHeight / 100) * sourceHeight;
+      const canvas = document.createElement("canvas");
+      const outputWidth = Math.max(1, Math.round(sw));
+      const outputHeight = Math.max(1, Math.round(sh));
+
+      canvas.width = outputWidth;
+      canvas.height = outputHeight;
+
+      const ctx = canvas.getContext("2d");
+
+      if (!ctx) {
+        reject(new Error("切り抜き画像を作成できませんでした。"));
+        return;
+      }
+
+      ctx.drawImage(sourceImage, sx, sy, sw, sh, 0, 0, outputWidth, outputHeight);
+
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("切り抜き画像を作成できませんでした。"));
+      img.src = canvas.toDataURL("image/png");
+    });
+
+  const applyCrop = async () => {
+    const sourceImage = cropImageRef.current;
+
+    if (!sourceImage) {
+      closeCropModal();
+      return;
+    }
+
+    try {
+      const croppedImage = await createCroppedImage(sourceImage, crop, cropAspect);
+
+      if (cropTarget === "background") {
+        setBackgroundImage(croppedImage);
+        setStatusMessage(
+          `背景画像を${panelCount === 2 ? "2面" : "1面"}用の比率で設定しました。`,
+        );
+      } else {
+        setIconImage(croppedImage);
+      }
+
+      closeCropModal();
+    } catch (error) {
+      setStatusMessage(
+        error instanceof Error ? error.message : "画像の切り抜きに失敗しました。",
+      );
+    }
+  };
+
+  const clearIconImage = () => {
+    setIconImage(null);
+
+    if (iconInputRef.current) {
+      iconInputRef.current.value = "";
+    }
+  };
+
+  const clearBackgroundImage = () => {
+    setBackgroundImage(null);
+
+    if (backgroundInputRef.current) {
+      backgroundInputRef.current.value = "";
+    }
+  };
+
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
 
@@ -973,14 +1295,21 @@ function App() {
     const reader = new FileReader();
 
     reader.onload = () => {
-      setImageSrc(reader.result);
-      setShowCropModal(true);
+      openCropModal(reader.result, "icon");
+    };
 
-      const img = new Image();
-      img.onload = () => {
-        setIconImage(img);
-      };
-      img.src = reader.result;
+    reader.readAsDataURL(file);
+  };
+
+  const handleBackgroundFileSelect = (event) => {
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      openCropModal(reader.result, "background");
     };
 
     reader.readAsDataURL(file);
@@ -993,12 +1322,24 @@ function App() {
       // ignore storage failures
     }
 
-    setShowOnboarding(false);
+    setIsOnboardingClosing(true);
+    window.setTimeout(() => {
+      setShowOnboarding(false);
+      setIsOnboardingClosing(false);
+    }, MODAL_EXIT_MS);
   };
 
   const openOnboarding = () => {
     setOnboardingSlide(0);
+    setIsOnboardingClosing(false);
     setShowOnboarding(true);
+  };
+
+  const switchTab = (nextTab) => {
+    if (nextTab === activeTab) return;
+
+    setPreviousTab(activeTab);
+    setActiveTab(nextTab);
   };
 
   return (
@@ -1058,18 +1399,18 @@ function App() {
 
             <div className="field-group">
               <span className="field-label">面数</span>
-              <div className="segmented">
-                {[1, 2].map((count) => (
-                  <button
-                    className={panelCount === count ? "is-active" : ""}
-                    key={count}
-                    onClick={() => setPanelCount(count)}
-                    type="button"
-                  >
-                    {count}面
-                  </button>
-                ))}
-              </div>
+              <button
+                aria-checked={panelCount === 2}
+                className="panel-count-switch"
+                data-panel-count={panelCount}
+                onClick={() => setPanelCount((current) => (current === 1 ? 2 : 1))}
+                role="switch"
+                type="button"
+              >
+                <span className="panel-count-switch-indicator" aria-hidden="true" />
+                <span className={panelCount === 1 ? "is-active" : ""}>1面</span>
+                <span className={panelCount === 2 ? "is-active" : ""}>2面</span>
+              </button>
             </div>
 
             {useCardStyle && (
@@ -1094,17 +1435,22 @@ function App() {
             </label>
           </section>
 
-          <nav className="tabs" aria-label="編集モード">
+          <nav
+            className="tabs"
+            aria-label="編集モード"
+            data-active-tab={activeTab}
+          >
+            <span className="tab-indicator" aria-hidden="true" />
             <button
               className={activeTab === "simple" ? "is-active" : ""}
-              onClick={() => setActiveTab("simple")}
+              onClick={() => switchTab("simple")}
               type="button"
             >
               シンプル
             </button>
             <button
               className={activeTab === "advanced" ? "is-active" : ""}
-              onClick={() => setActiveTab("advanced")}
+              onClick={() => switchTab("advanced")}
               type="button"
             >
               アドバンス
@@ -1112,7 +1458,11 @@ function App() {
           </nav>
 
           {activeTab === "simple" ? (
-            <section className="panel tab-panel">
+            <section
+              className="panel tab-panel"
+              data-direction={previousTab === "advanced" ? "backward" : "forward"}
+              key="simple"
+            >
               <h2>プロフィールから自動入力</h2>
 
               <div className="field-group">
@@ -1142,7 +1492,7 @@ function App() {
               </label>
 
               <button
-                className="app-button"
+                className="app-button fetch-profile-button"
                 disabled={isFetchingProfile}
                 onClick={resolveProfile}
                 type="button"
@@ -1153,7 +1503,11 @@ function App() {
               {statusMessage && <p className="status-message">{statusMessage}</p>}
             </section>
           ) : (
-            <section className="panel tab-panel">
+            <section
+              className="panel tab-panel"
+              data-direction={previousTab === "simple" ? "forward" : "backward"}
+              key="advanced"
+            >
               <h2>手動設定</h2>
 
               <label className="field-group">
@@ -1192,8 +1546,74 @@ function App() {
 
               <label className="field-group">
                 <span className="field-label">アイコン画像</span>
-                <input accept="image/*" onChange={handleFileSelect} type="file" />
+                <div className="file-input-row">
+                  <input
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    ref={iconInputRef}
+                    type="file"
+                  />
+                  {iconImage && (
+                    <button
+                      aria-label="アイコン画像を削除"
+                      className="clear-file-button"
+                      onClick={clearIconImage}
+                      type="button"
+                    >
+                      <svg
+                        aria-hidden="true"
+                        focusable="false"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M6.7 5.3 12 10.6l5.3-5.3 1.4 1.4L13.4 12l5.3 5.3-1.4 1.4L12 13.4l-5.3 5.3-1.4-1.4 5.3-5.3-5.3-5.3z" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </label>
+
+              <label className="field-group">
+                <span className="field-label">背景画像</span>
+                <div className="file-input-row">
+                  <input
+                    accept="image/*"
+                    onChange={handleBackgroundFileSelect}
+                    ref={backgroundInputRef}
+                    type="file"
+                  />
+                  {backgroundImage && (
+                    <button
+                      aria-label="背景画像を削除"
+                      className="clear-file-button"
+                      onClick={clearBackgroundImage}
+                      type="button"
+                    >
+                      <svg
+                        aria-hidden="true"
+                        focusable="false"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M6.7 5.3 12 10.6l5.3-5.3 1.4 1.4L13.4 12l5.3 5.3-1.4 1.4L12 13.4l-5.3 5.3-1.4-1.4 5.3-5.3-5.3-5.3z" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </label>
+
+              <div className="field-group">
+                <span className="field-label">背景画像ぼかし</span>
+                <div className="range-row">
+                  <input
+                    disabled={!backgroundImage}
+                    max="32"
+                    min="0"
+                    onChange={(event) => setBackgroundBlur(Number(event.target.value))}
+                    type="range"
+                    value={backgroundBlur}
+                  />
+                  <span>{backgroundBlur}px</span>
+                </div>
+              </div>
 
               <div className="field-group">
                 <span className="field-label">色設定</span>
@@ -1253,17 +1673,27 @@ function App() {
       </section>
 
       {showCropModal && imageSrc && (
-        <div className="modal-backdrop">
-          <div className="crop-modal">
-            <h2>アイコンを調整</h2>
+        <div className={`modal-backdrop${isCropModalClosing ? " is-closing" : ""}`}>
+          <div className="crop-modal modal-surface">
+            <h2>{cropTarget === "background" ? "背景画像を調整" : "アイコンを調整"}</h2>
 
-            <ReactCrop crop={crop} onChange={(nextCrop) => setCrop(nextCrop)} aspect={1}>
-              <img alt="Crop" src={imageSrc} />
+            <ReactCrop
+              aspect={cropAspect}
+              crop={crop}
+              onChange={(_, nextPercentCrop) => setCrop(nextPercentCrop)}
+            >
+              <img
+                alt="Crop"
+                onLoad={(event) => {
+                  cropImageRef.current = event.currentTarget;
+                }}
+                src={imageSrc}
+              />
             </ReactCrop>
 
             <button
               className="app-button"
-              onClick={() => setShowCropModal(false)}
+              onClick={applyCrop}
               type="button"
             >
               OK
@@ -1273,10 +1703,10 @@ function App() {
       )}
 
       {showOnboarding && (
-        <div className="modal-backdrop">
+        <div className={`modal-backdrop${isOnboardingClosing ? " is-closing" : ""}`}>
           <section
             aria-label="初回ガイド"
-            className="onboarding-modal"
+            className="onboarding-modal modal-surface"
           >
             <div
               className="onboarding-track"
