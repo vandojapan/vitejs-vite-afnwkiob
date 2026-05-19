@@ -40,6 +40,30 @@ const isAllowedRemoteUrl = (value) => {
   return ["http:", "https:"].includes(url.protocol);
 };
 
+const normalizeProfileUrlInput = (value, service) => {
+  const trimmed = value.trim();
+
+  if (service === "youtube" && !/^https?:\/\//i.test(trimmed)) {
+    const handle = trimmed.replace(/^@/, "");
+
+    if (handle && !/[/?#]/.test(handle)) {
+      return `https://www.youtube.com/@${encodeURIComponent(handle)}`;
+    }
+  }
+
+  if (service !== "x") {
+    return trimmed;
+  }
+
+  const handle = trimmed.replace(/^@/, "");
+
+  if (/^[A-Za-z0-9_]{1,15}$/.test(handle)) {
+    return `https://x.com/${handle}`;
+  }
+
+  return trimmed;
+};
+
 const getProxyImageUrl = (requestUrl, imageUrl) => {
   if (!imageUrl) return "";
 
@@ -345,7 +369,8 @@ export default {
     }
 
     const service = requestUrl.searchParams.get("service") || "";
-    const profileUrl = requestUrl.searchParams.get("url") || "";
+    const rawProfileUrl = requestUrl.searchParams.get("url") || "";
+    const profileUrl = normalizeProfileUrlInput(rawProfileUrl, service);
 
     if (!profileUrl) {
       return json({ error: "url is required" }, 400);

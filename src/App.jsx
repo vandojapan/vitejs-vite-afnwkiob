@@ -150,6 +150,30 @@ const getFallbackIconUrls = (profile, service) => {
   ];
 };
 
+const normalizeProfileUrlInput = (value, service) => {
+  const trimmed = value.trim();
+
+  if (service === "youtube" && !/^https?:\/\//i.test(trimmed)) {
+    const handle = trimmed.replace(/^@/, "");
+
+    if (handle && !/[/?#]/.test(handle)) {
+      return `https://www.youtube.com/@${encodeURIComponent(handle)}`;
+    }
+  }
+
+  if (service !== "x") {
+    return trimmed;
+  }
+
+  const handle = trimmed.replace(/^@/, "");
+
+  if (/^[A-Za-z0-9_]{1,15}$/.test(handle)) {
+    return `https://x.com/${handle}`;
+  }
+
+  return trimmed;
+};
+
 const normalizeFontFamily = (cssFontFamily) => {
   const family = cssFontFamily.split(",")[0].trim();
   return family.replace(/^['"]+|['"]+$/g, "");
@@ -444,6 +468,7 @@ function App() {
 
   const resolveProfile = async () => {
     const trimmedUrl = profileUrl.trim();
+    const normalizedProfileUrl = normalizeProfileUrlInput(trimmedUrl, profileService);
 
     if (!trimmedUrl) {
       setStatusMessage("プロフィールURLを入力してください。");
@@ -462,7 +487,7 @@ function App() {
 
     try {
       const endpoint = new URL(PROFILE_WORKER_URL);
-      endpoint.searchParams.set("url", trimmedUrl);
+      endpoint.searchParams.set("url", normalizedProfileUrl);
       endpoint.searchParams.set("service", profileService);
 
       const response = await fetch(endpoint);
@@ -532,7 +557,7 @@ function App() {
         }
       }
 
-      setQrUrl((current) => current || profile.sourceUrl || trimmedUrl);
+      setQrUrl((current) => current || profile.sourceUrl || normalizedProfileUrl);
       setStatusMessage(
         iconWarning
           ? `名前とプロフィール情報を反映しました。${iconWarning}`
