@@ -56,6 +56,128 @@ const PROFILE_SERVICES = [
 const ONBOARDING_STORAGE_KEY = "event-namecard-onboarding-seen";
 const MODAL_EXIT_MS = 180;
 
+const PRIVACY_POLICY_SECTIONS = [
+  {
+    title: "取得する情報",
+    items: [
+      "シンプルモードで入力されたプロフィールURL、選択されたサービス種別、QRコード用URLを名札作成のために利用します。",
+      "名前、サブテキスト、色、フォント、アップロードされたアイコン画像・背景画像はブラウザ内で名札を生成するために利用します。",
+      "初回ガイドを閉じた状態のみ、ブラウザのlocalStorageに保存します。",
+    ],
+  },
+  {
+    title: "プロフィール取得時の通信",
+    items: [
+      "プロフィール自動入力を実行した場合、入力されたプロフィールURLとサービス種別をCloudflare Workerへ送信します。",
+      "Workerは対象プロフィールページ、X、Unavatar等の外部サービスへアクセスし、表示名、ハンドル、プロフィール画像URL、OG画像等を取得します。",
+      "プロフィール画像はCORS対応のためWorkerの画像プロキシ経由で取得される場合があります。画像プロキシのレスポンスは最大1日キャッシュされることがあります。",
+    ],
+  },
+  {
+    title: "保存と共有",
+    items: [
+      "このアプリは、作成した名札画像、入力内容、アップロード画像を独自のサーバーへ保存しません。",
+      "PNG保存、共有、クリップボードコピーを実行した場合、生成画像は利用中のブラウザまたはOSの機能に渡されます。",
+      "Google Fontsなど、画面表示に必要な外部リソースへブラウザから通信が発生する場合があります。",
+    ],
+  },
+  {
+    title: "お問い合わせ",
+    items: [
+      "本ポリシーはアプリの実装変更に合わせて更新されることがあります。",
+    ],
+  },
+];
+
+const LICENSE_NOTICES = [
+  {
+    name: "React, React DOM, scheduler",
+    license: "MIT License",
+    copyright: "Copyright (c) Meta Platforms, Inc. and affiliates.",
+  },
+  {
+    name: "QRCode",
+    license: "MIT License",
+    copyright: "Copyright (c) 2012 Ryan Day",
+  },
+  {
+    name: "react-color, reactcss, @icons/material",
+    license: "MIT License",
+    copyright: "Copyright (c) 2015 Case Sandberg",
+  },
+  {
+    name: "react-image-crop",
+    license: "ISC License",
+    copyright: "Copyright (c) 2015, Dominic Tobias (https://github.com/dominictobias)",
+  },
+  {
+    name: "tinycolor2",
+    license: "MIT License",
+    copyright: "Copyright (c), Brian Grinstead, http://briangrinstead.com",
+  },
+  {
+    name: "lodash, lodash-es",
+    license: "MIT License",
+    copyright: "Copyright OpenJS Foundation and other contributors <https://openjsf.org/>",
+  },
+  {
+    name: "prop-types",
+    license: "MIT License",
+    copyright: "Copyright (c) 2013-present, Facebook, Inc.",
+  },
+  {
+    name: "react-is",
+    license: "MIT License",
+    copyright: "Copyright (c) Facebook, Inc. and its affiliates.",
+  },
+  {
+    name: "material-colors",
+    license: "ISC License",
+    copyright: "Copyright 2014 Shuhei Kagawa",
+  },
+  {
+    name: "dijkstrajs",
+    license: "MIT License",
+    copyright: "Copyright (C) 2008 Wyatt Baldwin <self@wyattbaldwin.com>",
+  },
+  {
+    name: "pngjs",
+    license: "MIT License",
+    copyright:
+      "pngjs2 original work Copyright (c) 2015 Luke Page & Original Contributors; pngjs derived work Copyright (c) 2012 Kuba Niegowski",
+  },
+];
+
+const MIT_LICENSE_TEXT = `Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.`;
+
+const ISC_LICENSE_TEXT = `Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.`;
+
 const ONBOARDING_SLIDES = [
   {
     title: "シンプルモード",
@@ -258,6 +380,10 @@ function App() {
   });
   const [isOnboardingClosing, setIsOnboardingClosing] = useState(false);
   const [onboardingSlide, setOnboardingSlide] = useState(0);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+  const [isPrivacyPolicyClosing, setIsPrivacyPolicyClosing] = useState(false);
+  const [showLicenseNotices, setShowLicenseNotices] = useState(false);
+  const [isLicenseNoticesClosing, setIsLicenseNoticesClosing] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
 
   const selectedPaper = PAPER_SIZES[paperSize];
@@ -1368,6 +1494,32 @@ function App() {
     setShowOnboarding(true);
   };
 
+  const openPrivacyPolicy = () => {
+    setIsPrivacyPolicyClosing(false);
+    setShowPrivacyPolicy(true);
+  };
+
+  const closePrivacyPolicy = () => {
+    setIsPrivacyPolicyClosing(true);
+    window.setTimeout(() => {
+      setShowPrivacyPolicy(false);
+      setIsPrivacyPolicyClosing(false);
+    }, MODAL_EXIT_MS);
+  };
+
+  const openLicenseNotices = () => {
+    setIsLicenseNoticesClosing(false);
+    setShowLicenseNotices(true);
+  };
+
+  const closeLicenseNotices = () => {
+    setIsLicenseNoticesClosing(true);
+    window.setTimeout(() => {
+      setShowLicenseNotices(false);
+      setIsLicenseNoticesClosing(false);
+    }, MODAL_EXIT_MS);
+  };
+
   const switchTab = (nextTab) => {
     if (nextTab === activeTab) return;
 
@@ -1725,6 +1877,24 @@ function App() {
         </section>
       </section>
 
+      <footer className="app-footer">
+        <button
+          className="footer-link-button"
+          onClick={openPrivacyPolicy}
+          type="button"
+        >
+          プライバシーポリシー
+        </button>
+        <span aria-hidden="true">/</span>
+        <button
+          className="footer-link-button"
+          onClick={openLicenseNotices}
+          type="button"
+        >
+          ライセンス
+        </button>
+      </footer>
+
       {showCropModal && imageSrc && (
         <div className={`modal-backdrop${isCropModalClosing ? " is-closing" : ""}`}>
           <div className="crop-modal modal-surface">
@@ -1809,6 +1979,135 @@ function App() {
                   閉じる
                 </button>
               )}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {showPrivacyPolicy && (
+        <div className={`modal-backdrop${isPrivacyPolicyClosing ? " is-closing" : ""}`}>
+          <section
+            aria-labelledby="privacy-policy-title"
+            aria-modal="true"
+            className="privacy-modal modal-surface"
+            role="dialog"
+          >
+            <div className="privacy-modal-header">
+              <div>
+                <p className="privacy-policy-date">制定日: 2026年5月22日</p>
+                <h2 id="privacy-policy-title">プライバシーポリシー</h2>
+              </div>
+              <button
+                aria-label="プライバシーポリシーを閉じる"
+                className="modal-close-button"
+                onClick={closePrivacyPolicy}
+                type="button"
+              >
+                <svg
+                  aria-hidden="true"
+                  focusable="false"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M6.7 5.3 12 10.6l5.3-5.3 1.4 1.4L13.4 12l5.3 5.3-1.4 1.4L12 13.4l-5.3 5.3-1.4-1.4 5.3-5.3-5.3-5.3z" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="privacy-modal-body">
+              <p>
+                イベント名札ジェネレーターは、名札画像を作成するために必要な範囲で情報を扱います。
+                入力内容や生成画像を独自のサーバーに保存する機能はありません。
+              </p>
+
+              {PRIVACY_POLICY_SECTIONS.map((section) => (
+                <section className="privacy-policy-section" key={section.title}>
+                  <h3>{section.title}</h3>
+                  <ul>
+                    {section.items.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+
+            <div className="privacy-modal-footer">
+              <button
+                className="app-button"
+                onClick={closePrivacyPolicy}
+                type="button"
+              >
+                閉じる
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {showLicenseNotices && (
+        <div className={`modal-backdrop${isLicenseNoticesClosing ? " is-closing" : ""}`}>
+          <section
+            aria-labelledby="license-notices-title"
+            aria-modal="true"
+            className="privacy-modal modal-surface"
+            role="dialog"
+          >
+            <div className="privacy-modal-header">
+              <div>
+                <p className="privacy-policy-date">Third-party notices</p>
+                <h2 id="license-notices-title">ライセンス</h2>
+              </div>
+              <button
+                aria-label="ライセンス表示を閉じる"
+                className="modal-close-button"
+                onClick={closeLicenseNotices}
+                type="button"
+              >
+                <svg
+                  aria-hidden="true"
+                  focusable="false"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M6.7 5.3 12 10.6l5.3-5.3 1.4 1.4L13.4 12l5.3 5.3-1.4 1.4L12 13.4l-5.3 5.3-1.4-1.4 5.3-5.3-5.3-5.3z" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="privacy-modal-body">
+              <p>
+                このアプリは以下のオープンソースソフトウェアを利用しています。
+                各ソフトウェアの著作権表示とライセンス条件を記載します。
+              </p>
+
+              <section className="license-notice-list">
+                {LICENSE_NOTICES.map((notice) => (
+                  <article className="license-notice" key={notice.name}>
+                    <h3>{notice.name}</h3>
+                    <p>{notice.license}</p>
+                    <p>{notice.copyright}</p>
+                  </article>
+                ))}
+              </section>
+
+              <section className="privacy-policy-section">
+                <h3>MIT License</h3>
+                <pre className="license-text">{MIT_LICENSE_TEXT}</pre>
+              </section>
+
+              <section className="privacy-policy-section">
+                <h3>ISC License</h3>
+                <pre className="license-text">{ISC_LICENSE_TEXT}</pre>
+              </section>
+            </div>
+
+            <div className="privacy-modal-footer">
+              <button
+                className="app-button"
+                onClick={closeLicenseNotices}
+                type="button"
+              >
+                閉じる
+              </button>
             </div>
           </section>
         </div>
