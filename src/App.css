@@ -870,6 +870,12 @@ input[type="file"].file-picker-input {
   line-height: 1.7;
 }
 
+.privacy-policy-section a {
+  color: #1f6f8b;
+  font-weight: 800;
+  text-underline-offset: 3px;
+}
+
 .privacy-modal-footer {
   display: flex;
   justify-content: flex-end;

@@ -85,6 +85,7 @@ const PRIVACY_POLICY_SECTIONS = [
     title: "お問い合わせ",
     items: [
       "本ポリシーはアプリの実装変更に合わせて更新されることがあります。",
+      "お問い合わせは admin@chiya.ga までご連絡ください。",
     ],
   },
 ];
@@ -2024,7 +2025,17 @@ function App() {
                   <h3>{section.title}</h3>
                   <ul>
                     {section.items.map((item) => (
-                      <li key={item}>{item}</li>
+                      <li key={item}>
+                        {item.includes("admin@chiya.ga") ? (
+                          <>
+                            お問い合わせは{" "}
+                            <a href="mailto:admin@chiya.ga">admin@chiya.ga</a>
+                            {" "}までご連絡ください。
+                          </>
+                        ) : (
+                          item
+                        )}
+                      </li>
                     ))}
                   </ul>
                 </section>
