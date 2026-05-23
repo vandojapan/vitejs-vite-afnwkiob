@@ -81,6 +81,16 @@ const decodeHtml = (value) =>
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">");
 
+const decodeJsonString = (value) => {
+  try {
+    return JSON.parse(`"${value}"`);
+  } catch {
+    return decodeHtml(value);
+  }
+};
+
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 const extractMeta = (html, property) => {
   const escapedProperty = property.replace(":", "[:]");
   const patterns = [
@@ -278,6 +288,29 @@ const getFirstFetchableImageUrl = async (imageUrls) => {
   return "";
 };
 
+const extractXProfileFromHtml = (html, handle) => {
+  if (!handle) {
+    return { name: "", iconUrl: "" };
+  }
+
+  const escapedHandle = escapeRegExp(handle);
+  const userMatch = html.match(
+    new RegExp(
+      `"name":"((?:\\\\.|[^"\\\\])*)"\\s*,\\s*"screen_name":"${escapedHandle}"[\\s\\S]{0,4000}?"profile_image_url_https":"((?:\\\\.|[^"\\\\])*)"`,
+      "i",
+    ),
+  );
+
+  if (!userMatch) {
+    return { name: "", iconUrl: "" };
+  }
+
+  return {
+    name: decodeJsonString(userMatch[1]),
+    iconUrl: decodeJsonString(userMatch[2]).replace("_normal.", "_400x400."),
+  };
+};
+
 const getXProfile = async (profileUrl) => {
   const handle = getHandle(profileUrl);
 
@@ -312,7 +345,7 @@ const getXProfile = async (profileUrl) => {
 
     return {
       name: user?.name || "",
-      iconUrl: "",
+      iconUrl: user?.profile_image_url_https?.replace("_normal.", "_400x400.") || "",
     };
   } catch {
     return { name: "", iconUrl: "" };
@@ -400,14 +433,26 @@ export default {
 
     const html = await response.text();
     const ogImage = extractMeta(html, "og:image");
+    const htmlXProfile =
+      service === "x"
+        ? extractXProfileFromHtml(html, getHandle(fetchProfileUrl.toString()))
+        : { name: "", iconUrl: "" };
     const xProfile =
       service === "x" ? await getXProfile(fetchProfileUrl.toString()) : { name: "", iconUrl: "" };
     const iconCandidates =
       service === "niconico"
         ? [ogImage]
-        : [xProfile.iconUrl, ...getUnavatarUrls(service, fetchProfileUrl.toString()), ogImage];
+        : [
+            xProfile.iconUrl,
+            htmlXProfile.iconUrl,
+            ...getUnavatarUrls(service, fetchProfileUrl.toString()),
+            ogImage,
+          ];
     const rawIconUrl = await getFirstFetchableImageUrl(iconCandidates);
-    const name = xProfile.name || cleanProfileName(extractTitle(html), service);
+    const name =
+      xProfile.name
+      || htmlXProfile.name
+      || cleanProfileName(extractTitle(html), service);
     const identifiers = getProfileIdentifiers(fetchProfileUrl.toString(), service);
 
     return json({

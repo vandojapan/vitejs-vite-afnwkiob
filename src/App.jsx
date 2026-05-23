@@ -1133,12 +1133,15 @@ function App() {
       });
     }
 
+    const qrSize = height * 0.15 * (panelCount === 1 ? 0.7 : 1);
+    const qrMargin = height * 0.05;
+
     await drawQrCode(
       ctx,
       qrUrl,
-      x + width - height * 0.2,
-      y + height - height * 0.2,
-      height * 0.15,
+      x + width - qrSize - qrMargin,
+      y + height - qrSize - qrMargin,
+      qrSize,
     );
 
     if (rotateContent) {
