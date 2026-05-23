@@ -35,12 +35,12 @@ const PAPER_SIZES = {
 
 const FONT_FAMILIES = [
   { id: "default", label: "デフォルト", css: "sans-serif", supports700: false },
-  { id: "DotGothic16", label: "DotGothic16", css: "'DotGothic16', sans-serif", supports700: false },
+  { id: "DotGothic16", label: "ドットゴシック16", css: "'DotGothic16', sans-serif", supports700: false },
   { id: "IBM Plex Sans", label: "IBM Plex Sans", css: "'IBM Plex Sans', sans-serif", supports700: true },
-  { id: "RocknRoll One", label: "RocknRoll One", css: "'RocknRoll One', sans-serif", supports700: false },
-  { id: "Kaisei Decol", label: "Kaisei Decol", css: "'Kaisei Decol', sans-serif", supports700: true },
-  { id: "Kaisei HarunoUmi", label: "Kaisei HarunoUmi", css: "'Kaisei HarunoUmi', sans-serif", supports700: true },
-  { id: "Kaisei Opti", label: "Kaisei Opti", css: "'Kaisei Opti', sans-serif", supports700: true },
+  { id: "RocknRoll One", label: "ロックンロール One", css: "'RocknRoll One', sans-serif", supports700: false },
+  { id: "Kaisei Decol", label: "解星 デコール", css: "'Kaisei Decol', sans-serif", supports700: true },
+  { id: "Kaisei HarunoUmi", label: "解星 春の海", css: "'Kaisei HarunoUmi', sans-serif", supports700: true },
+  { id: "Kaisei Opti", label: "解星 オプティ", css: "'Kaisei Opti', sans-serif", supports700: true },
   { id: "Kosugi Maru", label: "Kosugi Maru", css: "'Kosugi Maru', sans-serif", supports700: false },
   { id: "Kosugi", label: "Kosugi", css: "'Kosugi', sans-serif", supports700: false },
 ];
