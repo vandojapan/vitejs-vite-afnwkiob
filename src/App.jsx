@@ -2029,7 +2029,13 @@ function App() {
                         {item.includes("admin@chiya.ga") ? (
                           <>
                             お問い合わせは{" "}
-                            <a href="mailto:admin@chiya.ga">admin@chiya.ga</a>
+                            <a
+                              href="mailto:admin@chiya.ga"
+                              rel="noreferrer"
+                              target="_blank"
+                            >
+                              admin@chiya.ga
+                            </a>
                             {" "}までご連絡ください。
                           </>
                         ) : (
